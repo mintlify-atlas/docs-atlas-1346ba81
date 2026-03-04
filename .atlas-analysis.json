@@ -1,0 +1,158 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "PKHeX",
+  "projectDescription": "A comprehensive C# library for editing and validating Pokémon save files and entity data across all generations.",
+  "theme": "palm",
+  "primaryColor": "#EE1515",
+  "lightColor": "#FFCB05",
+  "darkColor": "#3B4CCA",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/save-files",
+              "concepts/pokemon-entities",
+              "concepts/legality-analysis",
+              "concepts/game-versions"
+            ]
+          },
+          {
+            "group": "Working with Save Files",
+            "pages": [
+              "guides/save-files/loading-saves",
+              "guides/save-files/save-structure",
+              "guides/save-files/modifying-data",
+              "guides/save-files/exporting-saves"
+            ]
+          },
+          {
+            "group": "Working with Pokémon",
+            "pages": [
+              "guides/pokemon/creating-pokemon",
+              "guides/pokemon/editing-properties",
+              "guides/pokemon/showdown-format",
+              "guides/pokemon/converting-formats"
+            ]
+          },
+          {
+            "group": "Legality Checking",
+            "pages": [
+              "guides/legality/overview",
+              "guides/legality/running-checks",
+              "guides/legality/interpreting-results",
+              "guides/legality/custom-validation"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "guides/advanced/mystery-gifts",
+              "guides/advanced/ribbons-marks",
+              "guides/advanced/encryption",
+              "guides/advanced/memory-card-files"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/pkm",
+              "api/savefile",
+              "api/legality-analysis",
+              "api/showdown-set"
+            ]
+          },
+          {
+            "group": "PKM Formats",
+            "pages": [
+              "api/formats/overview",
+              "api/formats/pk1-pk2",
+              "api/formats/pk3-pk4-pk5",
+              "api/formats/pk6-pk7",
+              "api/formats/pk8-pa8-pb8",
+              "api/formats/pk9-pa9"
+            ]
+          },
+          {
+            "group": "Save File Types",
+            "pages": [
+              "api/saves/generation-1-2",
+              "api/saves/generation-3",
+              "api/saves/generation-4-5",
+              "api/saves/generation-6-7",
+              "api/saves/generation-8",
+              "api/saves/generation-9"
+            ]
+          },
+          {
+            "group": "Editing",
+            "pages": [
+              "api/editing/applicators",
+              "api/editing/bulk-operations",
+              "api/editing/showdown-parsing"
+            ]
+          },
+          {
+            "group": "Legality",
+            "pages": [
+              "api/legality/encounters",
+              "api/legality/verifiers",
+              "api/legality/evolutions",
+              "api/legality/moves"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utilities/personal-info",
+              "api/utilities/game-strings",
+              "api/utilities/items-moves"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Save file editing for all Pokémon generations (1-9)",
+    "Pokémon entity creation and modification with format-specific implementations",
+    "Comprehensive legality analysis and validation system",
+    "Pokémon Showdown text format import/export",
+    "Mystery Gift file support and conversion",
+    "Cross-generation format conversion",
+    "GameCube memory card save file support",
+    "Battle video and team import capabilities"
+  ],
+  "publicApiSurface": [
+    "PKM - Base class for all Pokémon entity formats",
+    "SaveFile - Base class for save file implementations",
+    "LegalityAnalysis - Validates Pokémon legality",
+    "ShowdownSet - Import/export Showdown format",
+    "MysteryGift - Mystery gift event data",
+    "PK1-PK9 - Generation-specific Pokémon formats",
+    "SAV1-SAV9 - Generation-specific save file formats",
+    "BallApplicator - Apply Poké Ball properties",
+    "MoveApplicator - Apply move data",
+    "RibbonApplicator - Apply ribbon data",
+    "EntityConverter - Convert between formats",
+    "Legal - Legality checking utilities",
+    "PersonalTable - Species stat and ability data",
+    "GameInfo - Game version and string data"
+  ]
+}
