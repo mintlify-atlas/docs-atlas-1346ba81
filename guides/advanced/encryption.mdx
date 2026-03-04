@@ -1,0 +1,451 @@
+---
+title: "Save File Encryption"
+description: "Understanding save file encryption and decryption mechanisms"
+icon: "lock"
+---
+
+## Overview
+
+PKHeX supports multiple encryption schemes used across different Pokémon games. Each encryption system is tailored to specific games and platforms, from GameCube titles to modern Switch games.
+
+## Encryption Systems
+
+### GameCube Encryption
+
+GameCube Pokémon games (Colosseum and XD) use custom encryption schemes developed by Genius Sonority.
+
+#### Colosseum Encryption
+
+Pokémon Colosseum uses SHA-1 based encryption with an iterative XOR process:
+
+```csharp
+using PKHeX.Core;
+
+// Colosseum save structure
+// - Header: 0x0000-0x6000 (24KB)
+// - Slot 1: 0x6000-0x24000 (120KB)
+// - Slot 2: 0x24000-0x42000 (120KB)
+// - Slot 3: 0x42000-0x60000 (120KB)
+
+var saveData = File.ReadAllBytes("pokemon_colosseum.gci");
+
+// Get a specific save slot
+var slot = ColoCrypto.GetSlot(saveData, 0); // Get slot 0
+
+// Decrypt the slot
+ColoCrypto.Decrypt(slot.Span);
+
+// Verify checksums
+var (isHeaderValid, isBodyValid) = ColoCrypto.IsChecksumValid(slot.Span);
+Console.WriteLine($"Header valid: {isHeaderValid}");
+Console.WriteLine($"Body valid: {isBodyValid}");
+
+// Modify data...
+
+// Update checksums before encrypting
+ColoCrypto.SetChecksums(slot.Span);
+
+// Re-encrypt the slot
+ColoCrypto.Encrypt(slot.Span);
+
+// Write back to file
+File.WriteAllBytes("pokemon_colosseum_modified.gci", saveData);
+```
+
+#### XD: Gale of Darkness Encryption
+
+Pokémon XD uses the GeniusCrypto encryption system:
+
+```csharp
+using PKHeX.Core;
+
+// XD save structure
+// - Header: 0x0000-0x6000 (24KB)
+// - Slot 1: 0x6000-0x2E000 (160KB)
+// - Slot 2: 0x2E000-0x56000 (160KB)
+
+var saveData = File.ReadAllBytes("pokemon_xd.gci");
+
+// Detect which slot is the most recent
+var (slotIndex, saveCounter) = XDCrypto.DetectLatest(saveData);
+Console.WriteLine($"Latest slot: {slotIndex}, Counter: {saveCounter}");
+
+// Get the active slot
+var slot = XDCrypto.GetSlot(saveData, slotIndex);
+
+// Decrypt the slot
+XDCrypto.DecryptSlot(slot.Span);
+
+// Modify save data...
+
+// Update checksums (subOffset0 is game-specific, usually 0)
+XDCrypto.SetChecksums(slot.Span, subOffset0: 0);
+
+// Re-encrypt
+XDCrypto.EncryptSlot(slot.Span);
+
+File.WriteAllBytes("pokemon_xd_modified.gci", saveData);
+```
+
+#### GeniusCrypto Algorithm
+
+The underlying encryption algorithm used by XD and Battle Revolution:
+
+```csharp
+using PKHeX.Core;
+
+// Manual encryption/decryption with custom keys
+Span<byte> data = stackalloc byte[0x100];
+Span<ushort> keys = stackalloc ushort[4] { 0x1234, 0x5678, 0x9ABC, 0xDEF0 };
+
+// Encrypt data
+GeniusCrypto.Encrypt(data, keys);
+
+// Decrypt data
+GeniusCrypto.Decrypt(data, keys);
+
+// Using ranges for partial encryption (XD-style)
+var fullData = new byte[0x28000];
+GeniusCrypto.Encrypt(
+    fullData,
+    keyRange: new Range(0x08, 0x10),      // Keys at offset 0x08-0x10
+    dataRange: new Range(0x10, 0x27FD8)   // Data to encrypt
+);
+```
+
+### Switch Game Encryption (SwishCrypto)
+
+Sword/Shield and later Switch titles use the SwishCrypto system ("MemeCrypto V2"):
+
+```csharp
+using PKHeX.Core;
+
+// Load encrypted save data
+var encryptedData = File.ReadAllBytes("main");
+
+// Verify hash before decryption
+if (!SwishCrypto.GetIsHashValid(encryptedData))
+{
+    Console.WriteLine("Invalid hash! Save may be corrupted.");
+    return;
+}
+
+// Decrypt and unpack blocks
+var blocks = SwishCrypto.Decrypt(encryptedData);
+
+Console.WriteLine($"Loaded {blocks.Count} save blocks");
+
+// Access individual blocks
+foreach (var block in blocks)
+{
+    Console.WriteLine($"Block {block.Key:X8}: Type={block.Type}, Size={block.Data.Length}");
+}
+
+// Modify blocks as needed...
+
+// Re-encrypt save data
+var reencrypted = SwishCrypto.Encrypt(blocks);
+
+File.WriteAllBytes("main_modified", reencrypted);
+```
+
+#### Understanding SwishCrypto
+
+SwishCrypto uses a multi-layer encryption approach:
+
+1. **Block Structure**: Save data is organized into SCBlock objects with keys and metadata
+2. **SHA-256 Hashing**: Data is hashed with static intro/outro salts
+3. **XOR Encryption**: Static XOR pad is applied to the data
+
+```csharp
+// Manual encryption steps
+var decryptedData = SwishCrypto.GetDecryptedRawData(blocks);
+
+// Apply XOR encryption
+var payload = decryptedData.AsSpan()[..^32]; // Exclude hash
+SwishCrypto.CryptStaticXorpadBytes(payload);
+
+// The XOR operation is reversible (XOR is its own inverse)
+SwishCrypto.CryptStaticXorpadBytes(payload); // Decrypts back
+```
+
+#### Working with SCBlocks
+
+```csharp
+using PKHeX.Core;
+
+// Find a specific block by key
+uint targetKey = 0x12345678;
+var block = blocks.FirstOrDefault(b => b.Key == targetKey);
+
+if (block != null)
+{
+    Console.WriteLine($"Block type: {block.Type}");
+    Console.WriteLine($"Block size: {block.Data.Length}");
+    
+    // Read data from block
+    var data = block.Data;
+    
+    // Modify block data
+    data[0] = 0xFF;
+}
+
+// Create a new block
+var newBlock = new SCBlock
+{
+    Key = 0xABCDEF00,
+    Type = SCTypeCode.Bool1, 
+    Data = new byte[] { 1 }
+};
+```
+
+## Memory Card Files
+
+GameCube memory card files contain additional metadata and directory structures:
+
+```csharp
+using PKHeX.Core;
+
+var memoryCardData = File.ReadAllBytes("MemoryCard.raw");
+var memoryCard = new SAV3GCMemoryCard(memoryCardData);
+
+// Verify memory card is valid
+var state = memoryCard.GetMemoryCardState();
+Console.WriteLine($"Memory card state: {state}");
+
+switch (state)
+{
+    case MemoryCardSaveStatus.SaveGameCOLO:
+        Console.WriteLine("Found Colosseum save");
+        break;
+    case MemoryCardSaveStatus.SaveGameXD:
+        Console.WriteLine("Found XD save");
+        break;
+    case MemoryCardSaveStatus.SaveGameRSBOX:
+        Console.WriteLine("Found Pokémon Box save");
+        break;
+    case MemoryCardSaveStatus.MultipleSaveGame:
+        Console.WriteLine("Multiple save files found");
+        break;
+    case MemoryCardSaveStatus.NoPkmSaveGame:
+        Console.WriteLine("No Pokémon saves found");
+        break;
+}
+
+// Check what games are present
+if (memoryCard.HasCOLO)
+    Console.WriteLine("Has Colosseum");
+if (memoryCard.HasXD)
+    Console.WriteLine("Has XD");
+if (memoryCard.HasRSBOX)
+    Console.WriteLine("Has Pokémon Box");
+```
+
+### Reading Save Data from Memory Card
+
+```csharp
+// Select which save to work with
+memoryCard.SelectSaveGame(SaveFileType.XD);
+
+// Read the save data
+var saveData = memoryCard.ReadSaveGameData();
+
+if (saveData.Length > 0)
+{
+    Console.WriteLine($"Save size: {saveData.Length} bytes");
+    
+    // Process with XD crypto
+    var mutableData = saveData.ToArray();
+    var (slotIndex, _) = XDCrypto.DetectLatest(mutableData);
+    var slot = XDCrypto.GetSlot(mutableData, slotIndex);
+    XDCrypto.DecryptSlot(slot.Span);
+    
+    // ... modify save data ...
+    
+    // Re-encrypt and write back
+    XDCrypto.SetChecksums(slot.Span, 0);
+    XDCrypto.EncryptSlot(slot.Span);
+    memoryCard.WriteSaveGameData(mutableData);
+}
+```
+
+### Memory Card Metadata
+
+```csharp
+// Access directory entries
+for (int i = 0; i < 127; i++) // Max 127 entries
+{
+    var entry = memoryCard.GetDEntry(i);
+    
+    if (!entry.IsEmpty)
+    {
+        Console.WriteLine($"Entry {i}:");
+        Console.WriteLine($"  Game Code: {entry.GameCode}");
+        Console.WriteLine($"  File Name: {entry.FileName}");
+        Console.WriteLine($"  Size: {entry.SaveDataLength} bytes");
+        Console.WriteLine($"  Offset: 0x{entry.SaveDataOffset:X}");
+    }
+}
+
+// Get encoding for text (Japanese or Windows-1252)
+var encoding = memoryCard.EncodingType;
+Console.WriteLine($"Text encoding: {encoding.EncodingName}");
+```
+
+## Checksum Validation
+
+### Colosseum Checksums
+
+```csharp
+// Check specific checksum components
+var status = MemoryCardChecksumStatus.None;
+
+// Verify all checksums
+var slot = ColoCrypto.GetSlot(saveData, 0);
+var (headerOk, bodyOk) = ColoCrypto.IsChecksumValid(slot.Span);
+
+if (!headerOk)
+    Console.WriteLine("Header checksum failed");
+if (!bodyOk)
+    Console.WriteLine("Body checksum failed");
+
+// Recalculate checksums after modification
+ColoCrypto.SetChecksums(slot.Span);
+```
+
+### XD Checksums
+
+```csharp
+// XD uses both header and body checksums
+// Header checksum covers first 8 bytes
+// Body checksum is split into 4 sections
+
+var slot = XDCrypto.GetSlot(saveData, 0);
+
+// Set all checksums (subOffset0 typically 0)
+XDCrypto.SetChecksums(slot.Span, subOffset0: 0);
+```
+
+## Save Slot Management
+
+Both Colosseum and XD use multiple save slots with counters:
+
+```csharp
+// Detect the most recent save slot
+var (coloSlot, coloCounter) = ColoCrypto.DetectLatest(coloSaveData);
+var (xdSlot, xdCounter) = XDCrypto.DetectLatest(xdSaveData);
+
+Console.WriteLine($"Colosseum - Active Slot: {coloSlot}, Counter: {coloCounter}");
+Console.WriteLine($"XD - Active Slot: {xdSlot}, Counter: {xdCounter}");
+
+// Process all slots
+for (int i = 0; i < ColoCrypto.SLOT_COUNT; i++)
+{
+    var slot = ColoCrypto.GetSlot(saveData, i);
+    ColoCrypto.Decrypt(slot.Span);
+    
+    // Read save counter from slot
+    var counter = BitConverter.ToInt32(slot.Span[4..8]);
+    Console.WriteLine($"Slot {i} counter: {counter}");
+    
+    // ... process slot ...
+    
+    ColoCrypto.SetChecksums(slot.Span);
+    ColoCrypto.Encrypt(slot.Span);
+}
+```
+
+## Practical Examples
+
+### Complete Colosseum Save Editing
+
+```csharp
+void EditColosseumSave(string path)
+{
+    var data = File.ReadAllBytes(path);
+    
+    // Find and decrypt active slot
+    var (slotIdx, counter) = ColoCrypto.DetectLatest(data);
+    var slot = ColoCrypto.GetSlot(data, slotIdx);
+    ColoCrypto.Decrypt(slot.Span);
+    
+    // Verify integrity
+    var (headerOk, bodyOk) = ColoCrypto.IsChecksumValid(slot.Span);
+    if (!headerOk || !bodyOk)
+    {
+        Console.WriteLine("Warning: Checksums invalid!");
+    }
+    
+    // Modify save data here
+    // ...
+    
+    // Update and re-encrypt
+    ColoCrypto.SetChecksums(slot.Span);
+    ColoCrypto.Encrypt(slot.Span);
+    
+    File.WriteAllBytes(path + ".modified", data);
+}
+```
+
+### Complete Switch Save Editing
+
+```csharp
+void EditSwitchSave(string path)
+{
+    var encrypted = File.ReadAllBytes(path);
+    
+    // Validate
+    if (!SwishCrypto.GetIsHashValid(encrypted))
+        throw new Exception("Invalid save hash");
+    
+    // Decrypt
+    var data = encrypted.AsSpan().ToArray();
+    var blocks = SwishCrypto.Decrypt(data);
+    
+    // Modify blocks
+    // ...
+    
+    // Re-encrypt
+    var reencrypted = SwishCrypto.Encrypt(blocks);
+    File.WriteAllBytes(path + ".modified", reencrypted);
+}
+```
+
+## Constants Reference
+
+```csharp
+// Colosseum
+ColoCrypto.SLOT_SIZE  = 0x1E000;  // 120 KB per slot
+ColoCrypto.SLOT_START = 0x6000;   // 24 KB header
+ColoCrypto.SLOT_COUNT = 3;        // 3 save slots
+ColoCrypto.SAVE_SIZE  = 0x60000;  // 384 KB total
+
+// XD
+XDCrypto.SLOT_SIZE  = 0x28000;  // 160 KB per slot  
+XDCrypto.SLOT_START = 0x6000;   // 24 KB header
+XDCrypto.SLOT_COUNT = 2;        // 2 save slots
+XDCrypto.SAVE_SIZE  = 0x56000;  // 344 KB total
+
+// Memory Card
+SAV3GCMemoryCard.BLOCK_SIZE = 0x2000;  // 8 KB blocks
+```
+
+## Best Practices
+
+<Warning>
+  Always verify checksums before and after modifying GameCube save files. Invalid checksums will cause the game to reject the save.
+</Warning>
+
+<Tip>
+  Use `DetectLatest()` to find the active save slot. Games alternate between slots to prevent corruption.
+</Tip>
+
+<Note>
+  SwishCrypto encryption is symmetric - the same operation both encrypts and decrypts. Don't apply it twice!
+</Note>
+
+## Related Resources
+
+- [Save File Operations](/guides/basics/save-files)
+- [Memory Card Files](/guides/advanced/memory-card-files)
+- [GameCube Save Files](/api/gamecube-saves)

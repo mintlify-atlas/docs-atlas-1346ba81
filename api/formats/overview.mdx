@@ -1,0 +1,79 @@
+---
+title: PKM Format Overview
+description: Overview of all PKM format classes in PKHeX.Core
+---
+
+# PKM Format Overview
+
+PKHeX.Core supports all Pokémon data formats from Generation 1 through Generation 9. Each generation has specific format classes that handle the binary structure of Pokémon data.
+
+## Format Evolution
+
+Pokémon data structures have evolved significantly across generations:
+
+- **Gen 1-2**: Simple structures with basic stats, moves, and trainer data
+- **Gen 3-5**: Introduction of abilities, natures, and expanded data
+- **Gen 6-7**: Added memories, affection, and Super Training
+- **Gen 8**: Introduced Dynamax, Gigantamax, and expanded ribbons
+- **Gen 9**: Added Terastallization and updated battle mechanics
+
+## Supported Formats
+
+| Format | Generation | Games | Size (Stored) | Size (Party) |
+|--------|------------|-------|---------------|---------------|
+| PK1 | 1 | RBY | 33 bytes | 44 bytes |
+| PK2 | 2 | GSC | 32 bytes | 48 bytes |
+| PK3 | 3 | RSE, FRLG | 80 bytes | 100 bytes |
+| PK4 | 4 | DPPt, HGSS | 136 bytes | 236 bytes |
+| PK5 | 5 | BW, B2W2 | 136 bytes | 220 bytes |
+| PK6 | 6 | XY, ORAS | 232 bytes (0xE8) | 260 bytes (0x104) |
+| PK7 | 7 | SM, USUM | 232 bytes (0xE8) | 260 bytes (0x104) |
+| PK8 | 8 | SwSh | 328 bytes (0x148) | 344 bytes (0x158) |
+| PA8 | 8 | Legends: Arceus | 360 bytes (0x168) | 376 bytes (0x178) |
+| PB8 | 8 | BDSP | 328 bytes (0x148) | 344 bytes (0x158) |
+| PK9 | 9 | SV | 328 bytes (0x148) | 344 bytes (0x158) |
+| PA9 | 9 | Z-A | 328 bytes (0x148) | 344 bytes (0x158) |
+
+## Key Concepts
+
+### Stored vs Party Format
+
+Each format has two sizes:
+
+- **SIZE_STORED**: Minimal data stored in PC boxes
+- **SIZE_PARTY**: Extended data including current stats for active party members
+
+### Data Encryption
+
+Starting from Generation 3, Pokémon data is encrypted using various algorithms:
+
+- **Gen 3-5**: Block shuffle encryption based on PID
+- **Gen 6+**: Block shuffle encryption based on Encryption Constant
+
+### Format Conversion
+
+PKHeX supports forward conversion between formats:
+
+- PK1 → PK2 → PK7 (via Virtual Console)
+- PK3 → PK4 → PK5 → PK6 → PK7 → PK8 → PK9
+- Conversion is generally one-way and may involve data transformation
+
+## Common Properties
+
+All PKM formats share these base properties:
+
+- Species ID
+- Level and Experience
+- Stats (HP, Attack, Defense, etc.)
+- Moves and PP
+- Trainer ID (TID/SID)
+- Original Trainer Name
+- Nature/Characteristic
+
+## See Also
+
+- [PK1 & PK2 Classes](/api/formats/pk1-pk2)
+- [PK3, PK4, PK5 Classes](/api/formats/pk3-pk4-pk5)
+- [PK6 & PK7 Classes](/api/formats/pk6-pk7)
+- [PK8, PA8, PB8 Classes](/api/formats/pk8-pa8-pb8)
+- [PK9 & PA9 Classes](/api/formats/pk9-pa9)

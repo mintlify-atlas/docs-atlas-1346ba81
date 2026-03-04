@@ -1,0 +1,367 @@
+---
+title: PK8, PA8, and PB8 Classes
+description: Generation 8 PKM format documentation
+---
+
+# PK8, PA8, and PB8 Classes
+
+Generation 8 introduced multiple format variations for different games: PK8 for Sword/Shield, PA8 for Legends: Arceus, and PB8 for Brilliant Diamond/Shining Pearl.
+
+## PK8 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK8.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 328 bytes (0x148) |
+| SIZE_PARTY | 344 bytes (0x158) |
+| Generation | 8 |
+| Context | EntityContext.Gen8 |
+| Games | Sword, Shield |
+
+### Key Features
+
+#### Dynamax System
+
+PK8 introduced Dynamax and Gigantamax:
+
+```csharp
+public int DynamaxType { get; set; }  // Stored at 0x156
+public byte DynamaxLevel { get; set; }
+public bool CanGigantamax { get; set; }
+```
+
+Dynamax Type determines which Max Move variant the Pokémon uses.
+
+#### Expanded Block Structure
+
+- Uses 4 blocks of 80 bytes each (320 bytes total)
+- Header: 8 bytes (Encryption Constant, Sanity, Checksum, Unused)
+- Total stored: 328 bytes
+- Party adds 16 bytes for battle stats
+
+#### Side Transfer Detection
+
+```csharp
+public bool IsSideTransfer => LocationsHOME.IsLocationSWSH(MetLocation);
+public override bool SV => MetLocation is LocationsHOME.SWSL or LocationsHOME.SHVL;
+public override bool BDSP => MetLocation is LocationsHOME.SWBD or LocationsHOME.SHSP;
+public override bool LA => MetLocation is LocationsHOME.SWLA;
+```
+
+Detects if Pokémon was transferred from other Gen 8 games via HOME.
+
+### Important Properties
+
+#### Tech Records
+
+```csharp
+public ReadOnlySpan<bool> TechRecordFlags { get; }
+public bool GetMoveRecordFlag(int index) { get; set; }
+```
+
+Tracks which TRs (Technical Records) the Pokémon has learned.
+
+#### Ribbons
+
+Expanded ribbon system:
+- Battle ribbons
+- Contest ribbons (transferred)
+- Tower ribbons
+- Mark ribbons (wild encounter marks)
+
+#### Tracker System
+
+```csharp
+public ulong Tracker { get; set; }
+```
+
+Unique 64-bit identifier for HOME tracking.
+
+### Data Differences from Gen 7
+
+- Removed: Super Training, Resort Events, some Gen 6/7 ribbons
+- Added: Dynamax, Gigantamax, Tech Records, Marks
+- Modified: Larger block size (80 bytes vs 56)
+
+---
+
+## PA8 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PA8.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 360 bytes (0x168) |
+| SIZE_PARTY | 376 bytes (0x178) |
+| Generation | 8 |
+| Context | EntityContext.Gen8a |
+| Games | Legends: Arceus |
+
+### Key Features
+
+#### Grit System
+
+Legends: Arceus uses Grit instead of EVs:
+
+```csharp
+public byte GV_HP { get; set; }
+public byte GV_ATK { get; set; }
+public byte GV_DEF { get; set; }
+public byte GV_SPE { get; set; }
+public byte GV_SPA { get; set; }
+public byte GV_SPD { get; set; }
+```
+
+Grit Values (GVs) range from 0-10 per stat.
+
+#### Alpha Pokémon
+
+```csharp
+public bool IsAlpha { get; set; }
+public byte HeightScalarCopy { get; set; }
+```
+
+Alpha Pokémon are larger and have different properties.
+
+#### Noble Pokémon
+
+```csharp
+public bool IsNoble { get; set; }
+```
+
+Special flag for Noble Pokémon (Kleavor, Lilligant, etc.).
+
+#### Move Mastery
+
+Replaces PP system:
+
+```csharp
+public bool GetMoveShopFlag(int index) { get; set; }
+public ulong MoveShopPermitFlags { get; set; }
+public ulong MasteredFlags { get; set; }
+```
+
+Tracks:
+- Which moves can be learned from move shop
+- Which moves are mastered (Strong/Agile style unlocked)
+
+### Unique Properties
+
+#### Height and Weight Scaling
+
+```csharp
+public byte HeightScalar { get; set; }
+public byte HeightScalarCopy { get; set; }  // For Alphas
+public byte WeightScalar { get; set; }
+public byte WeightScalarCopy { get; set; }
+```
+
+PLA has more detailed size variation.
+
+#### Sociability
+
+```csharp
+public byte Sociability { get; set; }
+```
+
+Affects behavior in pastures.
+
+### Data Structure
+
+Larger blocks (88 bytes each) to accommodate:
+- Grit values
+- Move mastery flags
+- Alpha/Noble flags
+- Enhanced size scalars
+- Move shop data
+
+### Removed Features
+
+- No Dynamax/Gigantamax
+- No contest stats
+- No affection (uses friendship only)
+- No ribbons (different system)
+
+---
+
+## PB8 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PB8.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 328 bytes (0x148) |
+| SIZE_PARTY | 344 bytes (0x158) |
+| Generation | 8 |
+| Context | EntityContext.Gen8b |
+| Games | Brilliant Diamond, Shining Pearl |
+
+### Key Features
+
+#### Gen 4 Remake Format
+
+PB8 is nearly identical to PK8 but adapted for Gen 4 remakes:
+
+```csharp
+public override PersonalInfo8BDSP PersonalInfo { get; }
+public override EntityContext Context => EntityContext.Gen8b;
+```
+
+#### Default Locations
+
+```csharp
+public PB8()
+{
+    EggLocation = MetLocation = Locations.Default8bNone;
+    AffixedRibbon = Core.AffixedRibbon.None;
+}
+```
+
+BDSP uses different default location values.
+
+#### DPR Illegal Flag
+
+```csharp
+public bool IsDprIllegal { get; set; }  // At 0x52
+```
+
+Internal flag used by the game for legality.
+
+### Data Differences from PK8
+
+#### Removed Features
+
+- No Dynamax/Gigantamax (not in BDSP)
+- No Galar-specific marks
+- Different ribbon set
+
+#### Modified Features
+
+- Uses Gen 4 move pool
+- Gen 4 ability distribution
+- Different met locations
+- Updated personal info table
+
+### Handler Update System
+
+```csharp
+public void UpdateHandler(ITrainerInfo tr)
+{
+    if (IsEgg)
+    {
+        const ushort location = Locations.LinkTrade6NPC;
+        if (MetLocation != location && !BelongsTo(tr))
+        {
+            var date = EncounterDate.GetDate3DS();
+            SetLinkTradeEgg(date.Day, date.Month, date.Year, location);
+        }
+    }
+    
+    if (!TradeOT(tr))
+        TradeHT(tr);
+}
+```
+
+Note: BDSP updates handler even for eggs (unlike other games).
+
+## Comparison Table
+
+| Feature | PK8 | PA8 | PB8 |
+|---------|-----|-----|-----|
+| Size (Stored) | 328 bytes | 360 bytes | 328 bytes |
+| Size (Party) | 344 bytes | 376 bytes | 344 bytes |
+| Block Size | 80 bytes | 88 bytes | 80 bytes |
+| Dynamax | Yes | No | No |
+| Grit Values | No | Yes | No |
+| Alpha | No | Yes | No |
+| Noble | No | Yes | No |
+| Move Mastery | No | Yes | No |
+| Tech Records | Yes | Yes | Yes |
+| Marks | Yes | Yes | Limited |
+| Contest Stats | No | Yes | No |
+
+## Code Examples
+
+### Creating a Dynamax PK8
+
+```csharp
+var pk8 = new PK8
+{
+    Species = 812, // Rillaboom
+    Form = 0,
+    CurrentLevel = 50,
+    DynamaxLevel = 10,
+    CanGigantamax = true,
+    Ball = 26, // Beast Ball
+};
+pk8.SetRandomIVs(6);
+pk8.RefreshChecksum();
+```
+
+### Creating an Alpha PA8
+
+```csharp
+var pa8 = new PA8
+{
+    Species = 900, // Kleavor
+    CurrentLevel = 65,
+    IsAlpha = true,
+    IsNoble = false,
+    HeightScalar = 255,
+    HeightScalarCopy = 255,
+};
+
+// Set Grit Values
+pa8.GV_HP = 10;
+pa8.GV_ATK = 10;
+pa8.GV_DEF = 10;
+pa8.GV_SPE = 10;
+pa8.GV_SPA = 10;
+pa8.GV_SPD = 10;
+
+pa8.RefreshChecksum();
+```
+
+### Setting Tech Records (PK8)
+
+```csharp
+var pk8 = new PK8(data);
+
+// Learn TR01 (Body Slam)
+pk8.SetMoveRecordFlag(0, true);
+
+// Check if TR learned
+if (pk8.GetMoveRecordFlag(0))
+{
+    Console.WriteLine("Can learn Body Slam");
+}
+```
+
+### Converting Between Gen 8 Formats
+
+Formats cannot directly convert to each other; they must go through HOME:
+
+```csharp
+// PK8 → HOME → PA8 (not directly supported)
+// Each format uses different PersonalInfo tables
+// and game-specific features
+```
+
+## See Also
+
+- [Format Overview](/api/formats/overview)
+- [PK6 & PK7 Classes](/api/formats/pk6-pk7)
+- [PK9 & PA9 Classes](/api/formats/pk9-pa9)

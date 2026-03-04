@@ -1,0 +1,450 @@
+---
+title: Evolutions
+description: Evolution chain validation and traversal in PKHeX
+---
+
+The evolution system in PKHeX handles evolution chain construction, validation, and reverse lookup across all generations.
+
+## Core Classes
+
+### EvolutionTree
+
+Generation-specific evolution data.
+
+```csharp
+public sealed class EvolutionTree : EvolutionNetwork
+{
+    // Static instances for each generation
+    public static readonly EvolutionTree Evolves1;   // Gen 1
+    public static readonly EvolutionTree Evolves2;   // Gen 2
+    public static readonly EvolutionTree Evolves3;   // Gen 3
+    public static readonly EvolutionTree Evolves4;   // Gen 4
+    public static readonly EvolutionTree Evolves5;   // Gen 5
+    public static readonly EvolutionTree Evolves6;   // Gen 6
+    public static readonly EvolutionTree Evolves7;   // Gen 7 (SM/USUM)
+    public static readonly EvolutionTree Evolves7b;  // Let's Go
+    public static readonly EvolutionTree Evolves8;   // Sword/Shield
+    public static readonly EvolutionTree Evolves8a;  // Legends Arceus
+    public static readonly EvolutionTree Evolves8b;  // BDSP
+    public static readonly EvolutionTree Evolves9;   // Scarlet/Violet
+    public static readonly EvolutionTree Evolves9a;  // Legends Z-A
+    
+    public static EvolutionTree GetEvolutionTree(EntityContext context);
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Evolutions/EvolutionTree.cs`
+
+**Usage:**
+
+```csharp
+// Get evolution tree for Scarlet/Violet
+var tree = EvolutionTree.GetEvolutionTree(EntityContext.Gen9);
+
+// Get evolution tree from context
+var tree = EvolutionTree.GetEvolutionTree(pk.Context);
+```
+
+### EvolutionChain
+
+Builds evolution histories for Pokémon.
+
+```csharp
+public static class EvolutionChain
+{
+    // Build complete evolution history
+    public static EvolutionHistory GetEvolutionChainsAllGens(
+        PKM pk, 
+        IEncounterTemplate enc
+    );
+    
+    // Get possible original forms
+    public static EvoCriteria[] GetOriginChain(
+        PKM pk, 
+        EvolutionOrigin enc, 
+        ushort encSpecies = 0, 
+        bool discard = true
+    );
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Evolutions/EvolutionChain.cs`
+
+**Example:**
+
+```csharp
+var pk = new PK9 { Species = (int)Species.Charizard, CurrentLevel = 50 };
+var enc = new EncounterStatic9 { Species = (int)Species.Charmander, Level = 5 };
+
+// Build evolution history across all generations
+var history = EvolutionChain.GetEvolutionChainsAllGens(pk, enc);
+
+// Access generation-specific chains
+var gen9Chain = history.Gen9;  // Charmander -> Charmeleon -> Charizard
+var gen8Chain = history.Gen8;  // Same chain if transferred
+```
+
+### EvolutionHistory
+
+Stores evolution chains for all generations.
+
+```csharp
+public sealed class EvolutionHistory
+{
+    public EvoCriteria[] Gen1 { get; set; } = [];
+    public EvoCriteria[] Gen2 { get; set; } = [];
+    public EvoCriteria[] Gen3 { get; set; } = [];
+    public EvoCriteria[] Gen4 { get; set; } = [];
+    public EvoCriteria[] Gen5 { get; set; } = [];
+    public EvoCriteria[] Gen6 { get; set; } = [];
+    public EvoCriteria[] Gen7 { get; set; } = [];
+    public EvoCriteria[] Gen7b { get; set; } = [];
+    public EvoCriteria[] Gen8 { get; set; } = [];
+    public EvoCriteria[] Gen8a { get; set; } = [];
+    public EvoCriteria[] Gen8b { get; set; } = [];
+    public EvoCriteria[] Gen9 { get; set; } = [];
+    public EvoCriteria[] Gen9a { get; set; } = [];
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Evolutions/EvolutionHistory.cs`
+
+### EvoCriteria
+
+Represents a single evolution state.
+
+```csharp
+public struct EvoCriteria
+{
+    public ushort Species { get; set; }
+    public byte Form { get; set; }
+    public byte LevelMin { get; set; }  // Earliest level in this form
+    public byte LevelMax { get; set; }  // Latest level in this form
+    public byte Method { get; set; }    // Evolution method used
+}
+```
+
+**Example:**
+
+```csharp
+var evo = new EvoCriteria 
+{
+    Species = (int)Species.Charmeleon,
+    Form = 0,
+    LevelMin = 16,  // Evolved from Charmander at 16
+    LevelMax = 35,  // Evolved to Charizard at 36
+};
+```
+
+### EvolutionOrigin
+
+Defines the starting point for evolution chain building.
+
+```csharp
+public readonly record struct EvolutionOrigin(
+    ushort Species,
+    EntityContext Context,
+    byte Generation,
+    byte LevelMin,
+    byte LevelMax
+);
+```
+
+**Source:** `PKHeX.Core/Legality/Evolutions/EncounterOrigin.cs`
+
+## Evolution Methods
+
+Evolution methods are defined per generation:
+
+```csharp
+public abstract class EvolutionMethod
+{
+    public EvolutionType Type { get; init; }  // Level, Item, Trade, etc.
+    public ushort Argument { get; init; }     // Level, Item ID, etc.
+    public ushort Species { get; init; }      // Evolves into
+    public byte Form { get; init; }           // Evolves into (form)
+    public byte Level { get; init; }          // Minimum level
+}
+```
+
+### Common Evolution Types
+
+| Type | Description | Argument |
+|------|-------------|----------|
+| `LevelUp` | Level up | Minimum level |
+| `LevelUpFriendship` | Level with high friendship | Minimum level |
+| `LevelUpNature` | Level with specific nature | Nature ID |
+| `UseItem` | Use evolution stone/item | Item ID |
+| `Trade` | Trade evolution | 0 or held item |
+| `LevelUpMove` | Level knowing specific move | Move ID |
+| `LevelUpVersion` | Level in specific game | Game ID |
+| `LevelUpTime` | Level at specific time | Time (day/night) |
+
+## Evolution Chain Building
+
+### Forward Evolution (Devolve)
+
+Building from current species back to base form:
+
+```csharp
+public static EvoCriteria[] GetOriginChain(PKM pk, EvolutionOrigin enc)
+{
+    Span<EvoCriteria> result = stackalloc EvoCriteria[EvolutionTree.MaxEvolutions];
+    
+    // Start with current species
+    result[0] = new EvoCriteria 
+    { 
+        Species = pk.Species, 
+        Form = pk.Form, 
+        LevelMax = pk.CurrentLevel 
+    };
+    
+    // Devolve backwards to base form
+    var count = DevolveFrom(result, pk, enc, pk.Context, encSpecies, discard);
+    
+    return result[..count].ToArray();
+}
+```
+
+### Reverse Evolution (Evolve)
+
+Building from base form to current species:
+
+```csharp
+public void Evolve(
+    ReadOnlySpan<EvoCriteria> chain, 
+    PKM pk, 
+    EvolutionOrigin enc, 
+    EvolutionHistory history
+)
+{
+    // For each form in the chain
+    foreach (var evo in chain)
+    {
+        // Check if can evolve from previous form
+        var next = GetEvolutions(evo.Species, evo.Form);
+        // Store evolution path
+        history.AddEvolution(evo);
+    }
+}
+```
+
+## Evolution Validation
+
+### Level Requirements
+
+Validates evolution happened at valid level:
+
+```csharp
+public static bool IsLevelValid(PKM pk, EvoCriteria evo)
+{
+    var met = pk.MetLevel;
+    var current = pk.CurrentLevel;
+    
+    // Must be within evolution level range
+    if (current < evo.LevelMin)
+        return false;
+    
+    // Met level must be before evolution
+    if (met > evo.LevelMax)
+        return false;
+    
+    return true;
+}
+```
+
+### Form Changes
+
+Distinguishes between evolution and form change:
+
+```csharp
+public static bool IsFormChangeable(
+    ushort species, 
+    byte form, 
+    byte toForm, 
+    EntityContext context, 
+    EntityContext toContext
+)
+{
+    // Battle forms (Mega, Primal, etc.)
+    if (IsBattleOnlyForm(species, form, toForm))
+        return true;
+    
+    // Time-based (Shaymin, Hoopa)
+    if (IsTimeBasedForm(species, form, toForm))
+        return true;
+    
+    // Regional forms are NOT changeable
+    if (IsRegionalForm(species, form, toForm))
+        return false;
+    
+    return false;
+}
+```
+
+### Cross-Generation Evolution
+
+Handles evolutions that span multiple generations:
+
+```csharp
+private static EvolutionHistory EvolutionChainsSearch(
+    PKM pk, 
+    EvolutionOrigin enc, 
+    EntityContext context, 
+    ushort encSpecies, 
+    Span<EvoCriteria> chain
+)
+{
+    var history = new EvolutionHistory();
+    
+    // Special case: Gen 2 -> Gen 1 devolution
+    if (context == EntityContext.Gen2)
+    {
+        EvolutionGroup2.Instance.Evolve(chain, pk, enc, history);
+        EvolutionGroup1.Instance.Evolve(chain, pk, enc, history);
+        
+        if (pk.Format > 2)
+            context = EntityContext.Gen7; // Skip to Gen 7
+        else
+            return history;
+    }
+    
+    // Evolve through each generation
+    var group = EvolutionGroupUtil.GetGroup(context);
+    while (true)
+    {
+        group.Evolve(chain, pk, enc, history);
+        var next = group.GetNext(pk, enc);
+        if (next is null)
+            break;
+        group = next;
+    }
+    
+    return history;
+}
+```
+
+## Special Evolution Cases
+
+### Nincada → Shedinja
+
+Shedinja appears in empty party slot when Nincada evolves:
+
+```csharp
+if (enc.Species == (int)Species.Nincada && pk.Species == (int)Species.Shedinja)
+{
+    // Shedinja inherits ball in Gen 3 only
+    if (info.EvoChainsAllGens.Gen3.Length == 2)
+        return VerifyBall(enc, current, pk);
+    
+    // Gen 4+ reverts to Poké Ball
+    return VerifyBallEquals(current, Ball.Poke);
+}
+```
+
+### Regional Form Evolutions
+
+Alolan/Galarian/Paldean forms:
+
+```csharp
+// Pikachu (Alola) -> Raichu (Alola)
+if (enc.Form != evo.Form && IsRegionalForm(enc.Species))
+{
+    // Regional form must match encounter form
+    if (!IsRegionalFormEvolution(enc.Species, enc.Form, evo.Form))
+        return false;
+}
+```
+
+### Trade Evolutions with Items
+
+```csharp
+public sealed record EvolutionMethodTrade : EvolutionMethod
+{
+    public ushort HeldItem { get; init; }  // Required held item (0 = none)
+    
+    public bool IsValid(PKM pk) =>
+        HeldItem == 0 || pk.HeldItem == HeldItem;
+}
+```
+
+## Evolution Groups
+
+Evolution logic is grouped by generation:
+
+```csharp
+public interface IEvolutionGroup
+{
+    void Evolve(
+        ReadOnlySpan<EvoCriteria> chain, 
+        PKM pk, 
+        EvolutionOrigin enc, 
+        EvolutionHistory history
+    );
+    
+    void Devolve(
+        Span<EvoCriteria> result, 
+        PKM pk, 
+        EvolutionOrigin enc
+    );
+    
+    IEvolutionGroup? GetNext(PKM pk, EvolutionOrigin enc);
+    IEvolutionGroup? GetPrevious(PKM pk, EvolutionOrigin enc);
+}
+```
+
+**Implementations:**
+- `EvolutionGroup1` - Gen 1 (RBY)
+- `EvolutionGroup2` - Gen 2 (GSC)
+- `EvolutionGroup3` - Gen 3 (RSE/FRLG)
+- `EvolutionGroup4` - Gen 4 (DPPt/HGSS)
+- `EvolutionGroup5` - Gen 5 (BW/B2W2)
+- `EvolutionGroup6` - Gen 6 (XY/ORAS)
+- `EvolutionGroup7` - Gen 7 (SM/USUM)
+- `EvolutionGroup7b` - Let's Go
+- `EvolutionGroup8` - Gen 8 (SwSh)
+- `EvolutionGroup8a` - Legends Arceus
+- `EvolutionGroup8b` - BDSP
+- `EvolutionGroup9` - Gen 9 (SV)
+- `EvolutionGroup9a` - Legends Z-A
+
+## Example: Complete Evolution Chain
+
+```csharp
+// Build complete evolution history
+public EvolutionHistory GetCompleteHistory(PK9 pk, IEncounterTemplate enc)
+{
+    // Get the evolution chains
+    var history = EvolutionChain.GetEvolutionChainsAllGens(pk, enc);
+    
+    // Gen 9 chain (current)
+    foreach (var evo in history.Gen9)
+    {
+        Console.WriteLine($"{evo.Species} (Form {evo.Form}) Lv.{evo.LevelMin}-{evo.LevelMax}");
+    }
+    
+    // Gen 8 chain (if transferred from SwSh)
+    if (history.Gen8.Length > 0)
+    {
+        foreach (var evo in history.Gen8)
+        {
+            Console.WriteLine($"Gen8: {evo.Species}");
+        }
+    }
+    
+    return history;
+}
+```
+
+**Output:**
+```
+004 (Form 0) Lv.5-15   # Charmander
+005 (Form 0) Lv.16-35  # Charmeleon  
+006 (Form 0) Lv.36-50  # Charizard
+```
+
+## Related Documentation
+
+- [Encounters](/api/legality/encounters) - Encounter templates
+- [Verifiers](/api/legality/verifiers) - Validation logic
+- [Moves](/api/legality/moves) - Move learning across evolutions

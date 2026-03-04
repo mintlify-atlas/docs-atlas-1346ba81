@@ -1,0 +1,449 @@
+---
+title: Showdown Format Integration
+description: Import and export Pokémon data using Pokémon Showdown's text format
+---
+
+## Overview
+
+PKHeX.Core supports Pokémon Showdown's text format for importing and exporting Pokémon teams. This allows easy team sharing and integration with competitive battle simulators.
+
+## What is Showdown Format?
+
+Showdown format is a human-readable text format used by Pokémon Showdown (a popular battle simulator). Here's an example:
+
+```
+Garchomp @ Choice Scarf
+Ability: Rough Skin
+Level: 50
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Earthquake
+- Dragon Claw
+- Stone Edge
+- Outrage
+```
+
+## Importing from Showdown Format
+
+### Basic Import
+
+Use the `ShowdownSet` class to parse Showdown text:
+
+```csharp
+using PKHeX.Core;
+
+string showdownText = @"
+Pikachu @ Light Ball
+Ability: Static
+Level: 50
+Shiny: Yes
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+IVs: 0 Atk
+- Thunderbolt
+- Grass Knot
+- Hidden Power Ice
+- Volt Switch
+";
+
+// Parse the Showdown format
+var set = new ShowdownSet(showdownText);
+
+// Check for parsing errors
+if (set.InvalidLines.Count > 0)
+{
+    foreach (var error in set.InvalidLines)
+    {
+        Console.WriteLine($"Error: {error.Type} - {error.Line}");
+    }
+}
+```
+
+### Converting ShowdownSet to PKM
+
+After parsing, convert the `ShowdownSet` to a PKM entity:
+
+```csharp
+using PKHeX.Core;
+
+// Parse Showdown text
+var set = new ShowdownSet(showdownText);
+
+// Create a blank Pokémon for the target generation
+var pk = EntityBlank.GetBlank(EntityContext.Gen9);
+
+// Apply the ShowdownSet to the PKM
+var sav = new SimpleTrainerInfo(EntityContext.Gen9)
+{
+    OT = "Trainer",
+    TID16 = 12345,
+    SID16 = 54321,
+    Gender = 0,
+    Language = (int)LanguageID.English
+};
+
+pk.ApplySetDetails(set, sav);
+pk.RefreshChecksum();
+```
+
+<Note>
+The `SimpleTrainerInfo` provides trainer details that will be applied to the created Pokémon.
+</Note>
+
+### Accessing ShowdownSet Properties
+
+The `ShowdownSet` class exposes all parsed properties:
+
+```csharp
+var set = new ShowdownSet(showdownText);
+
+// Basic information
+ushort species = set.Species;
+string nickname = set.Nickname;
+byte? gender = set.Gender; // 0=Male, 1=Female, null=Genderless
+int heldItem = set.HeldItem;
+
+// Stats
+int ability = set.Ability;
+byte level = set.Level;
+Nature nature = set.Nature;
+bool shiny = set.Shiny;
+
+// IVs and EVs
+int[] ivs = set.IVs;  // [HP, ATK, DEF, SPE, SPA, SPD]
+int[] evs = set.EVs;  // [HP, ATK, DEF, SPE, SPA, SPD]
+
+// Moves
+ushort[] moves = set.Moves; // Up to 4 moves
+
+// Generation-specific
+MoveType teraType = set.TeraType;          // Gen 9
+byte dynamaxLevel = set.DynamaxLevel;      // Gen 8
+bool canGigantamax = set.CanGigantamax;    // Gen 8
+```
+
+## Exporting to Showdown Format
+
+### Basic Export
+
+Convert any PKM to Showdown format:
+
+```csharp
+using PKHeX.Core;
+
+PKM pk = new PK9 
+{ 
+    Species = (ushort)Species.Charizard,
+    Ability = (int)Ability.Blaze,
+    Nature = Nature.Timid,
+    // ... other properties
+};
+
+// Get Showdown text
+string showdownText = ShowdownParsing.GetShowdownText(pk);
+Console.WriteLine(showdownText);
+```
+
+### Custom Export Settings
+
+Control what appears in the export:
+
+```csharp
+using PKHeX.Core;
+
+var settings = new BattleTemplateExportSettings
+{
+    Moves = MoveDisplayStyle.Directional,  // How moves are formatted
+    StatsIVs = StatDisplayConfig.Default,
+    StatsEVs = StatDisplayConfig.Default
+};
+
+var set = new ShowdownSet(pk);
+string text = set.GetText(settings);
+```
+
+## Advanced Showdown Features
+
+### Parsing Multiple Pokémon (Teams)
+
+Import entire teams at once:
+
+```csharp
+string teamText = @"
+Pikachu @ Light Ball
+Ability: Static
+EVs: 252 SpA / 252 Spe / 4 HP
+Timid Nature
+- Thunderbolt
+- Volt Switch
+- Hidden Power Ice
+- Grass Knot
+
+Charizard @ Choice Specs
+Ability: Solar Power
+EVs: 252 SpA / 252 Spe / 4 HP
+Timid Nature
+- Fire Blast
+- Air Slash
+- Solar Beam
+- Focus Blast
+";
+
+// Parse team
+var team = ShowdownTeam.Parse(teamText);
+
+foreach (var set in team)
+{
+    Console.WriteLine($"Parsed: {set.Species}");
+    // Convert each set to PKM
+    var pk = EntityBlank.GetBlank(EntityContext.Gen9);
+    // Apply set details...
+}
+```
+
+### Handling Forms
+
+Showdown format supports alternate forms:
+
+```csharp
+string alolaPersian = @"
+Persian-Alola @ Life Orb
+Ability: Fur Coat
+EVs: 252 HP / 252 Def / 4 SpD
+Bold Nature
+- Foul Play
+- Taunt
+- Parting Shot
+- Toxic
+";
+
+var set = new ShowdownSet(alolaPersian);
+Console.WriteLine($"Form: {set.FormName}"); // "Alola"
+Console.WriteLine($"Form Index: {set.Form}"); // 1
+```
+
+### Tera Type Support (Gen 9)
+
+```csharp
+string teraExample = @"
+Dragonite @ Choice Band
+Ability: Multiscale
+Tera Type: Normal
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Extreme Speed
+- Outrage
+- Earthquake
+- Fire Punch
+";
+
+var set = new ShowdownSet(teraExample);
+Console.WriteLine($"Tera Type: {set.TeraType}"); // Normal
+```
+
+### Gigantamax Support (Gen 8)
+
+```csharp
+string gmaxExample = @"
+Charizard @ Life Orb
+Ability: Solar Power
+Gigantamax: Yes
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+- Flamethrower
+- Air Slash
+- Solar Beam
+- Roost
+";
+
+var set = new ShowdownSet(gmaxExample);
+Console.WriteLine($"Can Gigantamax: {set.CanGigantamax}");
+```
+
+## Localization Support
+
+Showdown format supports multiple languages:
+
+```csharp
+using PKHeX.Core;
+
+// Use Japanese localization
+var jpStrings = GameInfo.GetStrings("ja");
+var localization = new BattleTemplateLocalization(jpStrings);
+
+string japaneseSet = @"
+ピカチュウ @ でんきだま
+性格: ひかえめ
+特性: せいでんき
+努力値: HP 4 / 特攻 252 / 素早 252
+- 10まんボルト
+- くさむすび
+- ボルトチェンジ
+- めざめるパワー氷
+";
+
+var set = new ShowdownSet(japaneseSet, localization);
+Console.WriteLine($"Species: {set.Species}"); // Pikachu
+```
+
+## Error Handling
+
+### Detecting Parse Errors
+
+```csharp
+var set = new ShowdownSet(showdownText);
+
+if (set.InvalidLines.Count > 0)
+{
+    Console.WriteLine("Parsing errors detected:");
+    foreach (var error in set.InvalidLines)
+    {
+        switch (error.Type)
+        {
+            case BattleTemplateParseErrorType.InvalidSpecies:
+                Console.WriteLine($"Invalid species: {error.Line}");
+                break;
+            case BattleTemplateParseErrorType.InvalidMove:
+                Console.WriteLine($"Invalid move: {error.Line}");
+                break;
+            case BattleTemplateParseErrorType.InvalidAbility:
+                Console.WriteLine($"Invalid ability: {error.Line}");
+                break;
+            case BattleTemplateParseErrorType.LineLength:
+                Console.WriteLine($"Line too long/short: {error.Line}");
+                break;
+            default:
+                Console.WriteLine($"Unknown error: {error.Line}");
+                break;
+        }
+    }
+}
+```
+
+## Complete Import/Export Example
+
+```csharp
+using PKHeX.Core;
+
+public class ShowdownConverter
+{
+    // Import from Showdown text
+    public static PKM ImportShowdown(string showdownText, EntityContext context)
+    {
+        // Parse the text
+        var set = new ShowdownSet(showdownText);
+        
+        // Check for errors
+        if (set.InvalidLines.Count > 0)
+        {
+            throw new Exception($"Parse errors: {set.InvalidLines.Count}");
+        }
+        
+        // Create blank Pokémon
+        var pk = EntityBlank.GetBlank(context);
+        
+        // Create trainer info
+        var trainer = new SimpleTrainerInfo(context)
+        {
+            OT = "Trainer",
+            TID16 = 12345,
+            SID16 = 54321,
+            Gender = 0,
+            Language = (int)LanguageID.English
+        };
+        
+        // Apply the set
+        pk.ApplySetDetails(set, trainer);
+        pk.RefreshChecksum();
+        
+        return pk;
+    }
+    
+    // Export to Showdown text
+    public static string ExportShowdown(PKM pk)
+    {
+        var set = new ShowdownSet(pk);
+        return set.Text;
+    }
+    
+    // Import and export roundtrip
+    public static void TestRoundtrip(string originalText)
+    {
+        // Import
+        var pk = ImportShowdown(originalText, EntityContext.Gen9);
+        
+        // Export
+        string exportedText = ExportShowdown(pk);
+        
+        Console.WriteLine("Original:");
+        Console.WriteLine(originalText);
+        Console.WriteLine("\nExported:");
+        Console.WriteLine(exportedText);
+    }
+}
+```
+
+## Common Showdown Patterns
+
+### Standard Competitive Set
+
+```
+Landorus-Therian @ Assault Vest
+Ability: Intimidate
+Level: 50
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Earthquake
+- Rock Slide
+- U-turn
+- Superpower
+```
+
+### Special Attacker
+
+```
+Kyogre @ Choice Specs
+Ability: Drizzle
+Level: 50
+Shiny: Yes
+EVs: 252 HP / 252 SpA / 4 SpD
+Modest Nature
+IVs: 0 Atk
+- Water Spout
+- Origin Pulse
+- Ice Beam
+- Thunder
+```
+
+### Mixed Attacker with Hidden Power
+
+```
+Heatran @ Leftovers
+Ability: Flash Fire
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+IVs: 0 Atk / 30 Def
+- Magma Storm
+- Earth Power
+- Hidden Power Ice
+- Taunt
+```
+
+## Tips and Best Practices
+
+<Tip>
+- Always check `InvalidLines` after parsing to catch errors
+- Use `RefreshChecksum()` after applying a ShowdownSet
+- Showdown format is case-insensitive for most fields
+- The order of lines (except first line) doesn't matter
+</Tip>
+
+<Warning>
+Some Pokémon properties cannot be represented in Showdown format (ribbons, memories, etc.). These will be lost during export/import.
+</Warning>
+
+## Next Steps
+
+- Learn about [Creating Pokémon](/guides/pokemon/creating-pokemon) for manual creation
+- See [Editing Properties](/guides/pokemon/editing-properties) for detailed modifications
+- Explore [Converting Formats](/guides/pokemon/converting-formats) for generation transfers

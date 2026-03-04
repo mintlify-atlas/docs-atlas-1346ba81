@@ -1,0 +1,371 @@
+---
+title: Generation 3 Save Files
+description: SAV3, SAV3Colosseum, SAV3XD, and SAV3RSBox save file implementations
+---
+
+# Generation 3 Save Files
+
+Save file implementations for Game Boy Advance and GameCube Pokemon games.
+
+## SAV3 (Abstract Base)
+
+Base class for Ruby, Sapphire, Emerald, FireRed, and LeafGreen save files.
+
+### Class Definition
+
+```csharp
+public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetailName, 
+    IBoxDetailWallpaper, IDaycareStorage, IDaycareEggState, IDaycareExperience
+```
+
+**Source:** `PKHeX.Core/Saves/SAV3.cs`
+
+### Storage Structure
+
+Gen 3 saves use a unique 3-buffer system:
+
+| Buffer | Size | Contents |
+|--------|------|----------|
+| **Small** | 0x890 - 0xF2C | Pokedex, trainer info, options |
+| **Large** | 0x3C40 - 0xF08 | Party, items, event flags |
+| **Storage** | 0x83D0 | All 14 PC boxes |
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 14 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 2 |
+
+### Sector System
+
+Save data is fragmented into sectors:
+
+- **Sector Size**: 0x1000 bytes
+- **Used per Sector**: 0xF80 bytes
+- **Main Sectors**: 14 (sectors 0-13)
+- **Extra Sectors**: 4 (Hall of Fame, etc.)
+- **Save Slots**: 2 (primary and backup)
+
+```csharp
+public const int SIZE_SECTOR = 0x1000;
+public const int SIZE_SECTOR_USED = 0xF80;
+```
+
+### Key Properties
+
+#### Version Detection
+
+```csharp
+public bool Japanese { get; }
+public bool IsVirtualConsole { get; } // FRLG only
+public string SaveRevisionString { get; } // "J" or "U" + "VC" or "GBA"
+```
+
+#### Trainer Information
+
+```csharp
+public override string OT { get; set; }
+public Span<byte> OriginalTrainerTrash { get; }
+public override byte Gender { get; set; }
+public override uint ID32 { get; set; }
+public abstract uint SecurityKey { get; set; }
+```
+
+#### Options
+
+```csharp
+public int TextSpeed { get; set; } // 2 bits
+public byte OptionWindowFrame { get; set; } // 5 bits
+public bool OptionSoundStereo { get; set; }
+public bool OptionBattleStyle { get; set; } // Shift vs Set
+public bool OptionBattleScene { get; set; } // Animations on/off
+public bool OptionIsRegionMapZoom { get; set; }
+```
+
+### Event System
+
+```csharp
+public abstract int EventFlagCount { get; }
+public abstract int EventWorkCount { get; }
+public bool GetEventFlag(int flagNumber)
+public void SetEventFlag(int flagNumber, bool value)
+public ushort GetWork(int index)
+public void SetWork(int index, ushort value)
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public Memory<byte> GetDaycareSlot(int slot)
+public uint GetDaycareEXP(int index)
+public void SetDaycareEXP(int index, uint value)
+public bool IsDaycareOccupied(int slot)
+public bool IsEggAvailable { get; set; }
+```
+
+### Pokedex
+
+```csharp
+public abstract bool NationalDex { get; set; }
+public uint DexPIDUnown { get; set; } // Unown form PID
+public uint DexPIDSpinda { get; set; } // Spinda pattern PID
+public int DexUnownForm { get; } // Calculated from PID
+public byte PokedexSort { get; set; }
+public byte PokedexMode { get; set; }
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+```
+
+### External Connections
+
+#### GameCube Interaction
+
+```csharp
+public Span<byte> GiftRibbons { get; } // 11 ribbon counters
+public void GiftRibbonsImport(ReadOnlySpan<byte> trade)
+public void GiftRibbonsClear()
+
+// Colosseum/XD PokeCoupons
+public uint ColosseumCoupons { get; set; } // Max: 9,999,999
+public uint ColosseumCouponsTotal { get; set; } // Lifetime total
+public bool ColosseumPokeCouponTitleGold { get; set; } // 30,000 milestone
+public bool ColosseumPokeCouponTitleSilver { get; set; } // 5,000 milestone
+public bool ColosseumPokeCouponTitleBronze { get; set; } // 2,500 milestone
+public bool ColosseumReceivedAgeto { get; set; } // Celebi gift
+```
+
+#### Pokemon Box Ruby & Sapphire
+
+```csharp
+public bool HasUsedRSBOX { get; set; }
+public int RSBoxDepositEggsUnlocked { get; set; } // 0-3
+// 1: ExtremeSpeed Zigzagoon (100 deposited)
+// 2: Pay Day Skitty (500 deposited)
+// 3: Surf Pichu (1499 deposited)
+```
+
+#### Bonus Disc Interactions
+
+```csharp
+public bool HasReceivedWishmkrJirachi { get; set; } // Colosseum Bonus Disc
+```
+
+### Special Data
+
+```csharp
+public abstract Gen3MysteryData MysteryData { get; set; }
+public abstract Span<byte> EReaderBerry();
+public abstract Span<byte> EReaderTrainer();
+public string EBerryName { get; }
+public bool IsEBerryEngima { get; }
+```
+
+### Hall of Fame
+
+```csharp
+public byte[] GetHallOfFameData() // Merges two sectors
+public void SetHallOfFameData(ReadOnlySpan<byte> value)
+```
+
+---
+
+## SAV3Colosseum
+
+Pokemon Colosseum save file for GameCube.
+
+### Class Definition
+
+```csharp
+public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, 
+    IDaycareStorage, IDaycareExperience, IGCRegion
+```
+
+**Source:** `PKHeX.Core/Saves/SAV3Colosseum.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 3 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 1 |
+| **Shadow Pokemon** | 128 max |
+
+### Key Properties
+
+```csharp
+public GCVersion GCGameIndex { get; set; }
+public GCRegion CurrentRegion { get; set; }
+public GCRegion OriginalRegion { get; set; }
+public LanguageGC GCLanguage { get; set; }
+public string OT2 { get; set; } // Secondary OT storage
+public string RUI_Name { get; set; }
+public uint Coupons { get; set; }
+public uint CouponsTotal { get; set; }
+public const int MaxShadowID = 0x80; // 128
+```
+
+### Japanese Bonus Disc
+
+```csharp
+public bool PokeCouponTitleGold { get; set; } // Master Ball (30,000)
+public bool PokeCouponTitleSilver { get; set; } // Light Ball Pikachu (5,000)
+public bool PokeCouponTitleBronze { get; set; } // PP Max (2,500)
+public byte ReceivedAgetoGBA { get; set; } // Count of Celebi sent (max 48)
+public bool ReceivedAgeto { get; set; }
+```
+
+---
+
+## SAV3XD
+
+Pokemon XD: Gale of Darkness save file for GameCube.
+
+### Class Definition
+
+```csharp
+public sealed class SAV3XD : SaveFile, IGCSaveFile, IBoxDetailName, 
+    IDaycareStorage, IDaycareExperience, IGCRegion
+```
+
+**Source:** `PKHeX.Core/Saves/SAV3XD.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 8 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 1 |
+| **Shadow Pokemon** | Variable (depends on region) |
+
+### Key Properties
+
+```csharp
+public int MaxShadowID { get; } // Depends on ShadowInfo table
+public GCVersion GCGameIndex { get; set; }
+public GCRegion CurrentRegion { get; set; }
+public GCRegion OriginalRegion { get; set; }
+public LanguageGC GCLanguage { get; set; }
+public uint Coupons { get; set; }
+```
+
+### Shadow Pokemon Management
+
+XD tracks shadow Pokemon differently than Colosseum:
+
+```csharp
+public ShadowInfoTableXD ShadowInfo { get; } // Shadow Pokemon tracking
+// Shadow data is stored separately and merged when reading/writing
+```
+
+---
+
+## SAV3RSBox
+
+Pokemon Box Ruby & Sapphire save file for GameCube.
+
+### Class Definition
+
+```csharp
+public sealed class SAV3RSBox : SaveFile, IGCSaveFile, IBoxDetailName, IBoxDetailWallpaper
+```
+
+**Source:** `PKHeX.Core/Saves/SAV3RSBox.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 50 (displayed as 25 pairs) |
+| **Box Slot Count** | 30 per box |
+| **Party Size** | None |
+| **Total Capacity** | 1,500 Pokemon |
+
+### Special Features
+
+#### Dual Box Display
+
+Boxes are displayed in pairs with special naming:
+
+```csharp
+public const int BoxNamePrefix = 5;
+private const string BoxName1 = "[◖ ] ";
+private const string BoxName2 = "[ ◗] ";
+
+public string GetBoxName(int box) // Returns "[◖ ] NAME" or "[ ◗] NAME"
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+```
+
+#### Box Layout
+
+Boxes use a 12x5 grid instead of the standard 6x5:
+
+```csharp
+public override int GetBoxSlotOffset(int box, int slot)
+{
+    // Converts standard 6x5 layout to 12x5 storage format
+    int row = slot / 6;
+    int col = slot % 6;
+    if (box % 2 == 1) // right side
+        col += 6;
+    int boxSlot = (row * 12) + col;
+    return GetBoxOffset(box & ~1) + (boxSlot * SIZE_STORED);
+}
+```
+
+#### Extra Data Storage
+
+Pokemon Box stores additional data with each Pokemon:
+
+```csharp
+protected override int SIZE_STORED => PokeCrypto.SIZE_3STORED + 4;
+// Extra 4 bytes store TID16 and SID16
+```
+
+## Technical Notes
+
+### Checksums
+
+- **GBA Games**: CRC16-CCITT per sector
+- **Colosseum**: SHA1 checksums
+- **XD**: Custom checksum system
+- **Pokemon Box**: Per-block checksums
+
+### Save Detection
+
+The active save is determined by comparing save counts in sector footers:
+
+```csharp
+private static int GetActiveSlot(ReadOnlySpan<byte> data)
+{
+    // Compares footer data to find most recent save
+    return SAV3BlockDetection.CompareFooters(data, sectorZero0, sectorZero1);
+}
+```
+
+### GC Save Encryption
+
+```csharp
+// Colosseum
+ColoCrypto.Decrypt(Data);
+ColoCrypto.Encrypt(Data);
+
+// XD  
+XDCrypto.DecryptSlot(Data);
+XDCrypto.EncryptSlot(Data);
+```

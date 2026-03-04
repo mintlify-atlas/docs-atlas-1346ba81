@@ -1,122 +1,144 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "PKHeX",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#EE1515",
+    "light": "#FFCB05",
+    "dark": "#3B4CCA"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/kwsch/PKHeX"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/kwsch/PKHeX"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/save-files",
+              "concepts/pokemon-entities",
+              "concepts/legality-analysis",
+              "concepts/game-versions"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Working with Save Files",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/save-files/loading-saves",
+              "guides/save-files/save-structure",
+              "guides/save-files/modifying-data",
+              "guides/save-files/exporting-saves"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Working with Pokémon",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/pokemon/creating-pokemon",
+              "guides/pokemon/editing-properties",
+              "guides/pokemon/showdown-format",
+              "guides/pokemon/converting-formats"
+            ]
+          },
+          {
+            "group": "Legality Checking",
+            "pages": [
+              "guides/legality/overview",
+              "guides/legality/running-checks",
+              "guides/legality/interpreting-results",
+              "guides/legality/custom-validation"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "guides/advanced/mystery-gifts",
+              "guides/advanced/ribbons-marks",
+              "guides/advanced/encryption",
+              "guides/advanced/memory-card-files"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Classes",
             "pages": [
-              "api-reference/introduction"
+              "api/pkm",
+              "api/savefile",
+              "api/legality-analysis",
+              "api/showdown-set"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "PKM Formats",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/formats/overview",
+              "api/formats/pk1-pk2",
+              "api/formats/pk3-pk4-pk5",
+              "api/formats/pk6-pk7",
+              "api/formats/pk8-pa8-pb8",
+              "api/formats/pk9-pa9"
+            ]
+          },
+          {
+            "group": "Save File Types",
+            "pages": [
+              "api/saves/generation-1-2",
+              "api/saves/generation-3",
+              "api/saves/generation-4-5",
+              "api/saves/generation-6-7",
+              "api/saves/generation-8",
+              "api/saves/generation-9"
+            ]
+          },
+          {
+            "group": "Editing",
+            "pages": [
+              "api/editing/applicators",
+              "api/editing/bulk-operations",
+              "api/editing/showdown-parsing"
+            ]
+          },
+          {
+            "group": "Legality",
+            "pages": [
+              "api/legality/encounters",
+              "api/legality/verifiers",
+              "api/legality/evolutions",
+              "api/legality/moves"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utilities/personal-info",
+              "api/utilities/game-strings",
+              "api/utilities/items-moves"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

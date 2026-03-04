@@ -1,0 +1,356 @@
+---
+title: PK3, PK4, and PK5 Classes
+description: Generation 3, 4, and 5 PKM format documentation
+---
+
+# PK3, PK4, and PK5 Classes
+
+PK3, PK4, and PK5 represent the Nintendo DS and GBA era Pokémon formats, introducing modern mechanics like abilities, natures, and encrypted data structures.
+
+## PK3 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK3.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 80 bytes |
+| SIZE_PARTY | 100 bytes |
+| Generation | 3 |
+| Context | EntityContext.Gen3 |
+| Games | Ruby, Sapphire, Emerald, FireRed, LeafGreen |
+
+### Key Features
+
+#### Modern Pokémon Mechanics
+
+Gen 3 introduced:
+- **Abilities**: First generation with abilities
+- **Natures**: 25 natures affecting stat growth
+- **IVs**: 32 possible values (0-31) for each stat
+- **EVs**: Effort Values with 252 max per stat
+- **Personality Value (PID)**: Determines nature, gender, ability, shininess
+
+#### Data Encryption
+
+PK3 uses block-based encryption:
+
+```csharp
+public ushort Checksum { get; set; }
+public ushort Sanity { get; set; }
+```
+
+- Data divided into 4 blocks (A, B, C, D)
+- Block order shuffled based on PID
+- Each block encrypted with PID as key
+
+#### Contest Stats
+
+Gen 3 introduced Pokémon Contests:
+
+```csharp
+public byte ContestCool { get; set; }
+public byte ContestBeauty { get; set; }
+public byte ContestCute { get; set; }
+public byte ContestSmart { get; set; }
+public byte ContestTough { get; set; }
+public byte ContestSheen { get; set; }
+```
+
+### Data Structure
+
+#### Block A (0x20-0x2B)
+
+- Species (National Dex conversion)
+- Held Item
+- Experience
+- PP Ups (compressed)
+- Friendship
+
+#### Block B (0x2C-0x37)
+
+- Moves 1-4
+- PP for each move
+
+#### Block C (0x38-0x43)
+
+- EVs (HP, ATK, DEF, SPE, SPA, SPD)
+- Contest stats
+
+#### Block D (0x44-0x4F)
+
+- Pokérus state
+- Met location
+- Origins (level, version, ball, OT gender)
+- IVs (30 bits) + Egg flag + Ability bit
+- Ribbons
+
+### IV Storage
+
+```csharp
+public uint IV32 { get; set; }
+public int IV_HP  { get; set; } // Bits 0-4
+public int IV_ATK { get; set; } // Bits 5-9
+public int IV_DEF { get; set; } // Bits 10-14
+public int IV_SPE { get; set; } // Bits 15-19
+public int IV_SPA { get; set; } // Bits 20-24
+public int IV_SPD { get; set; } // Bits 25-29
+public bool IsEgg { get; set; } // Bit 30
+public bool AbilityBit { get; set; } // Bit 31
+```
+
+### Conversion to PK4
+
+```csharp
+public PK4 ConvertToPK4()
+```
+
+Transfer through Pal Park:
+- Removes HM moves
+- Converts ribbons from count to boolean
+- Sets met location to Pal Park
+- Preserves PID, IVs, nature
+
+---
+
+## PK4 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK4.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 136 bytes |
+| SIZE_PARTY | 236 bytes |
+| Generation | 4 |
+| Context | EntityContext.Gen4 |
+| Games | Diamond, Pearl, Platinum, HeartGold, SoulSilver |
+
+### Key Features
+
+#### Expanded Data Structure
+
+- Larger format accommodates new features
+- Gender stored separately from PID
+- Form data for new alternate forms
+- Met date tracking (year, month, day)
+
+#### Dual Location System
+
+Diamond/Pearl vs Platinum/HGSS locations:
+
+```csharp
+public ushort EggLocationDP { get; set; }
+public ushort MetLocationDP { get; set; }
+public ushort EggLocationExtended { get; set; }
+public ushort MetLocationExtended { get; set; }
+```
+
+#### Shiny Leaf (HGSS)
+
+```csharp
+public int ShinyLeaf { get; set; }
+```
+
+HeartGold/SoulSilver feature for befriended Pokémon.
+
+### Data Structure
+
+#### Block A (0x08-0x27)
+
+- Species, Held Item, ID32, EXP
+- Ability, Markings, Language
+- EVs (6 bytes)
+- Contest stats
+- Ribbons (Sinnoh, Hoenn)
+
+#### Block B (0x28-0x47)
+
+- Moves 1-4, PP, PP Ups
+- IVs (30 bits) + Egg + Nicknamed flags
+- More ribbons (Hoenn contests)
+- Fateful Encounter, Gender, Form
+- Egg and Met locations (HGSS/Pt)
+
+#### Block C (0x48-0x67)
+
+- Nickname (22 bytes, UTF-16)
+- Version
+- Contest ribbons (Sinnoh)
+
+#### Block D (0x68-0x87)
+
+- OT Name (16 bytes, UTF-16)
+- Met dates (Egg and Met)
+- Met locations (DP)
+- Pokérus, Ball, Met Level, OT Gender
+- Ground Tile type
+
+### HGSS Specific Features
+
+```csharp
+public byte BallHGSS { get; set; }        // Separate ball for HGSS
+public sbyte WalkingMood { get; set; }     // Following Pokémon mood
+```
+
+### Conversion to PK5
+
+```csharp
+public PK5 ConvertToPK5()
+```
+
+Transfer to Generation 5:
+- Removes HM moves (keeps Defog if learned)
+- Separates Nature from PID
+- Clears Pt/HGSS-specific data
+- Updates met location for transfer
+
+---
+
+## PK5 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK5.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 136 bytes |
+| SIZE_PARTY | 220 bytes |
+| Generation | 5 |
+| Context | EntityContext.Gen5 |
+| Games | Black, White, Black 2, White 2 |
+
+### Key Features
+
+#### Hidden Abilities
+
+Gen 5 introduced Hidden Abilities:
+
+```csharp
+public bool HiddenAbility { get; set; }
+```
+
+Stored separately from ability slot, allowing for Dream World abilities.
+
+#### Independent Nature
+
+```csharp
+public override Nature Nature { get; set; }
+```
+
+Nature is now stored independently, not calculated from PID.
+
+#### N's Sparkle
+
+```csharp
+public bool NSparkle { get; set; }
+```
+
+Special flag for N's Pokémon in BW.
+
+### New Features
+
+#### PokéStar Studios (B2W2)
+
+```csharp
+public byte PokeStarFame { get; set; }
+public bool IsPokeStar { get; set; }
+```
+
+#### Ground Tile
+
+```csharp
+public GroundTileType GroundTile { get; set; }
+```
+
+Tracks environment where Pokémon was encountered.
+
+### Data Structure Changes
+
+Mostly similar to PK4 but with:
+
+- Nature stored at `0x41`
+- Hidden Ability flag at `0x42`
+- N Sparkle flag at `0x42`
+- Removed HGSS-specific data
+- Removed Ball Capsule/Seals data
+
+### Conversion to PK6
+
+```csharp
+public PK6 ConvertToPK6()
+```
+
+Transfer to Generation 6:
+- Converts PID if shiny rate changes
+- Caps EVs at 252 (from 255)
+- Generates Encryption Constant from PID
+- Creates Handler memories
+- Sets region/country data
+- Converts markings to Gen 6 format
+
+## Comparison Table
+
+| Feature | PK3 | PK4 | PK5 |
+|---------|-----|-----|-----|
+| Encryption | Block shuffle | Block shuffle | Block shuffle |
+| Abilities | Yes | Yes | Yes (+ Hidden) |
+| Natures | From PID | From PID | Stored |
+| IVs | 30 bits + flags | 30 bits + flags | 30 bits + flags |
+| Forms | Basic | Extended | Extended |
+| Ribbons | Count-based | Boolean | Boolean |
+| Met Date | No | Yes | Yes |
+| Memories | No | No | No |
+| String Encoding | 1-byte | UTF-16 | UTF-16 |
+
+## Code Examples
+
+### Creating a PK3 Pokémon
+
+```csharp
+var pk3 = new PK3
+{
+    Species = 384, // Rayquaza
+    CurrentLevel = 70,
+    Ability = 2,
+    Nature = Nature.Adamant,
+    Ball = 5, // Safari Ball
+    MetLocation = 173 // Sky Pillar
+};
+pk3.SetPIDNature(pk3.Nature);
+pk3.RefreshChecksum();
+```
+
+### Converting Across Generations
+
+```csharp
+// Gen 3 → Gen 4 → Gen 5
+var pk3 = new PK3(data);
+var pk4 = pk3.ConvertToPK4();
+var pk5 = pk4.ConvertToPK5();
+```
+
+### Checking Encryption
+
+```csharp
+var pk3 = new PK3(data);
+if (pk3.ChecksumValid)
+{
+    Console.WriteLine("Valid checksum");
+}
+```
+
+## See Also
+
+- [Format Overview](/api/formats/overview)
+- [PK1 & PK2 Classes](/api/formats/pk1-pk2)
+- [PK6 & PK7 Classes](/api/formats/pk6-pk7)

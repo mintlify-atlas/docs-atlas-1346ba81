@@ -1,0 +1,305 @@
+---
+title: "Legality Checking Overview"
+description: "Understanding PKHeX's comprehensive legality checking system"
+icon: "shield-check"
+---
+
+## What is Legality Checking?
+
+PKHeX's legality checking system validates whether a Pokémon could legitimately exist in the games. It analyzes hundreds of data points including encounter data, moves, abilities, IVs, ribbons, and more to determine if a Pokémon is legal.
+
+## Core Components
+
+The legality system consists of several key components:
+
+### LegalityAnalysis Class
+
+The `LegalityAnalysis` class is the entry point for all legality checks. It orchestrates the entire validation process:
+
+```csharp
+using PKHeX.Core;
+
+// Load a Pokémon file
+var pk = PKMConverter.GetPKMfromBytes(File.ReadAllBytes("pokemon.pk9"));
+
+// Perform legality analysis
+var analysis = new LegalityAnalysis(pk);
+
+// Check if the Pokémon is legal
+if (analysis.Valid)
+{
+    Console.WriteLine("This Pokémon is legal!");
+}
+else
+{
+    Console.WriteLine("This Pokémon has legality issues.");
+}
+```
+
+### CheckResult Structure
+
+Each validation produces a `CheckResult` containing:
+
+- **Judgement** - Severity level (Valid, Fishy, or Invalid)
+- **Identifier** - Which property was checked (Ability, Moves, IVs, etc.)
+- **Result** - Specific result code (AbilityMismatch, MovePPTooHigh, etc.)
+- **Value** - Optional numeric argument for detailed messages
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Access all check results
+foreach (var result in analysis.Results)
+{
+    Console.WriteLine($"{result.Identifier}: {result.Judgement}");
+    Console.WriteLine($"  Code: {result.Result}");
+    Console.WriteLine($"  Valid: {result.Valid}");
+}
+```
+
+### Severity Levels
+
+The system uses three severity levels:
+
+<CodeGroup>
+```csharp Valid
+// Severity.Valid (1)
+// The check passed - values are legitimate
+if (result.Judgement == Severity.Valid)
+{
+    Console.WriteLine("✓ Check passed");
+}
+```
+
+```csharp Fishy
+// Severity.Fishy (0)
+// Suspicious but technically valid
+if (result.Judgement == Severity.Fishy)
+{
+    Console.WriteLine("⚠ Suspicious values detected");
+}
+```
+
+```csharp Invalid
+// Severity.Invalid (-1)
+// Definitively not legal
+if (result.Judgement == Severity.Invalid)
+{
+    Console.WriteLine("✗ Check failed - illegal");
+}
+```
+</CodeGroup>
+
+### Check Identifiers
+
+The `CheckIdentifier` enum categorizes what aspect of the Pokémon was validated:
+
+- **Encounter** - Matched encounter data
+- **CurrentMove** - Current moveset validation
+- **RelearnMove** - Relearn move validation
+- **Ability** - Ability validation
+- **Ball** - Poké Ball legality
+- **IVs** - Individual Value checks
+- **EVs** - Effort Value validation
+- **Ribbon** - Ribbon data checks
+- **Memory** - Memory data validation
+- And many more...
+
+```csharp
+// Filter results by identifier
+var abilityChecks = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.Ability);
+
+var moveChecks = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.CurrentMove);
+```
+
+## What Gets Checked?
+
+The legality system validates:
+
+<CardGroup cols={2}>
+  <Card title="Origin Data" icon="map-pin">
+    - Species and form validity
+    - Game version compatibility
+    - Met location and date
+    - Encounter type matching
+  </Card>
+  
+  <Card title="Stats & Attributes" icon="chart-line">
+    - IV and EV ranges
+    - Nature validity
+    - Ability legality
+    - Hidden Power type
+  </Card>
+  
+  <Card title="Moves" icon="swords">
+    - Move legality for species
+    - PP and PP Ups validation
+    - Relearn move matching
+    - Transfer move compatibility
+  </Card>
+  
+  <Card title="Metadata" icon="database">
+    - PID and EC correlation
+    - Trainer data validity
+    - Ribbon and mark checks
+    - Memory validation
+  </Card>
+</CardGroup>
+
+## Encounter Matching
+
+The system attempts to match the Pokémon to a possible encounter:
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Get the matched encounter
+var encounter = analysis.EncounterMatch;
+
+Console.WriteLine($"Encounter Type: {encounter.GetType().Name}");
+Console.WriteLine($"Species: {encounter.Species}");
+Console.WriteLine($"Level: {encounter.LevelMin}-{encounter.LevelMax}");
+Console.WriteLine($"Location: {encounter.Location}");
+
+// For Gen1/2 transfers, there may be an original encounter
+if (analysis.EncounterOriginal != analysis.EncounterMatch)
+{
+    Console.WriteLine($"Original: {analysis.EncounterOriginal.GetType().Name}");
+}
+```
+
+## Legal vs. Parsed
+
+Two important properties:
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Parsed: All checks completed without errors
+if (analysis.Parsed)
+{
+    Console.WriteLine("Analysis completed successfully");
+}
+
+// Valid: All checks returned Valid severity
+if (analysis.Valid)
+{
+    Console.WriteLine("Pokémon is completely legal");
+}
+
+// A Pokémon can be parsed but not valid
+if (analysis.Parsed && !analysis.Valid)
+{
+    Console.WriteLine("Analysis completed, but found legality issues");
+}
+```
+
+<Note>
+  If `Parsed` is false, an error occurred during analysis. The `Valid` property is only meaningful when `Parsed` is true.
+</Note>
+
+## Context-Aware Checking
+
+You can provide save file context for more accurate validation:
+
+```csharp
+using PKHeX.Core;
+
+// Load save file
+var sav = SaveUtil.GetVariantSAV(File.ReadAllBytes("save.sav"));
+if (sav == null)
+    return;
+
+// Load Pokémon
+var pk = sav.GetBoxSlotAtIndex(0, 0);
+
+// Use save file's personal table for accurate form data
+var analysis = new LegalityAnalysis(pk, sav.Personal, StorageSlotType.Box);
+
+// The third parameter indicates where the Pokémon came from
+// This helps validate certain restrictions
+```
+
+## Generation-Specific Checks
+
+Different generations have different validation rules:
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+var info = analysis.Info;
+
+Console.WriteLine($"Generation: {info.Generation}");
+Console.WriteLine($"Context: {pk.Context}");
+
+// The system automatically applies generation-specific rules
+switch (pk.Generation)
+{
+    case 1:
+    case 2:
+        // Gen 1/2: Checks catch rate, DVs, no abilities
+        break;
+    case 3:
+        // Gen 3: PID-based ability, gender, shininess
+        break;
+    case 4:
+    case 5:
+        // Gen 4/5: Transition to new ability system
+        break;
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+        // Modern gens: Full ability numbers, memories, etc.
+        break;
+}
+```
+
+## Result Codes
+
+The `LegalityCheckResultCode` enum contains over 400 specific result codes:
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+foreach (var result in analysis.Results)
+{
+    switch (result.Result)
+    {
+        case LegalityCheckResultCode.Valid:
+            // Generic valid result
+            break;
+            
+        case LegalityCheckResultCode.AbilityMismatch:
+            // Ability doesn't match encounter
+            break;
+            
+        case LegalityCheckResultCode.MovePPTooHigh_01:
+            // Move has too many PP Ups
+            break;
+            
+        case LegalityCheckResultCode.IVFlawlessCountGEQ_0:
+            // Minimum flawless IV count not met
+            break;
+            
+        // ... and many more
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Running Checks" icon="play" href="/guides/legality/running-checks">
+    Learn how to perform legality checks in your code
+  </Card>
+  
+  <Card title="Interpreting Results" icon="list-check" href="/guides/legality/interpreting-results">
+    Understand what the results mean and how to handle them
+  </Card>
+  
+  <Card title="Custom Validation" icon="code" href="/guides/legality/custom-validation">
+    Extend the system with your own validation logic
+  </Card>
+</CardGroup>

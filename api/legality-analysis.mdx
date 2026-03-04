@@ -1,0 +1,443 @@
+---
+title: LegalityAnalysis Class
+description: Validates Pokémon data for legality and provides detailed analysis results
+---
+
+## Overview
+
+The `LegalityAnalysis` class performs comprehensive legality checks on Pokémon data. It validates whether a Pokémon could have been legitimately obtained in the games, checking encounter data, moves, stats, and various other properties.
+
+**Namespace:** `PKHeX.Core`
+
+**Inheritance:** `Object` → `LegalityAnalysis`
+
+## Constructors
+
+<ParamField path="LegalityAnalysis(PKM pk, StorageSlotType source = StorageSlotType.None)" type="constructor">
+  Creates a new legality analysis using the Pokémon's PersonalInfo.
+  
+  **Parameters:**
+  - `pk` (PKM): The Pokémon to analyze
+  - `source` (StorageSlotType): Where the Pokémon originated from (optional)
+</ParamField>
+
+<ParamField path="LegalityAnalysis(PKM pk, IPersonalTable table, StorageSlotType source = StorageSlotType.None)" type="constructor">
+  Creates a new legality analysis with save file-specific personal data.
+  
+  **Parameters:**
+  - `pk` (PKM): The Pokémon to analyze
+  - `table` (IPersonalTable): Personal data table from the save file
+  - `source` (StorageSlotType): Where the Pokémon originated from (optional)
+  
+  **Remarks:** This is the best method for checking with context, as some games do not have all alternate form data available.
+</ParamField>
+
+<ParamField path="LegalityAnalysis(PKM pk, IPersonalInfo pi, StorageSlotType source = StorageSlotType.None)" type="constructor">
+  Creates a new legality analysis with specific personal info.
+  
+  **Parameters:**
+  - `pk` (PKM): The Pokémon to analyze
+  - `pi` (IPersonalInfo): Personal info to parse with
+  - `source` (StorageSlotType): Where the Pokémon originated from (optional)
+</ParamField>
+
+## Properties
+
+### Analysis Results
+
+<ResponseField name="Valid" type="bool">
+  Gets whether all legality checks passed successfully.
+  
+  **Remarks:** This is `true` only if all checks returned Valid severity and all moves are legal.
+</ResponseField>
+
+<ResponseField name="Parsed" type="bool">
+  Gets whether all checks completed without errors.
+  
+  **Remarks:** This value is `false` if any checks encountered an error during analysis.
+</ResponseField>
+
+<ResponseField name="Results" type="IReadOnlyList<CheckResult>">
+  Gets the list of all check results from the legality analysis.
+  
+  **Remarks:** Each CheckResult contains the severity, identifier, and comment for a specific check.
+</ResponseField>
+
+### Encounter Information
+
+<ResponseField name="EncounterMatch" type="IEncounterable">
+  Gets the matched encounter data for the Pokémon.
+  
+  **Remarks:** This is the encounter that best matches the Pokémon's data.
+</ResponseField>
+
+<ResponseField name="EncounterOriginal" type="IEncounterable">
+  Gets the original encounter data for the Pokémon.
+  
+  **Remarks:** For Generation 1/2 Pokémon transferred to Generation 7, this retains the original match while EncounterMatch is updated to the VC transfer encounter.
+</ResponseField>
+
+### Entity Data
+
+<ResponseField name="Entity" type="PKM">
+  Gets the Pokémon being analyzed (internal field).
+</ResponseField>
+
+<ResponseField name="PersonalInfo" type="IPersonalInfo">
+  Gets the personal info used for analysis (internal field).
+  
+  **Remarks:** This may differ from the Pokémon's PersonalInfo if sourced from a save file with different values.
+</ResponseField>
+
+<ResponseField name="Info" type="LegalInfo">
+  Gets the legal info object containing detailed analysis data.
+  
+  **Remarks:** This contains move analysis, relearn moves, evolution chains, and other detailed information.
+</ResponseField>
+
+<ResponseField name="SlotOrigin" type="StorageSlotType">
+  Gets where the Pokémon originated from.
+</ResponseField>
+
+## Methods
+
+<ParamField path="AddLine(CheckResult chk)" type="method">
+  Adds a check result to the parse results.
+  
+  **Parameters:**
+  - `chk` (CheckResult): Check result to add
+</ParamField>
+
+## Usage Examples
+
+### Basic Legality Check
+
+```csharp
+using PKHeX.Core;
+
+// Analyze a Pokémon
+var pk = GetPokemon(); // Your PKM instance
+var analysis = new LegalityAnalysis(pk);
+
+// Check if legal
+if (analysis.Valid)
+{
+    Console.WriteLine("This Pokémon is legal!");
+}
+else
+{
+    Console.WriteLine("This Pokémon is illegal!");
+}
+
+// Get detailed results
+foreach (var result in analysis.Results)
+{
+    Console.WriteLine($"{result.Identifier}: {result.Comment} [{result.Severity}]");
+}
+```
+
+### Analyzing with Save File Context
+
+```csharp
+// Load save file
+var sav = SaveUtil.GetVariantSAV(saveData);
+
+// Get Pokémon from save
+var pk = sav.GetBoxSlotAtIndex(0, 0);
+
+// Analyze with save file's personal table
+var analysis = new LegalityAnalysis(pk, sav.Personal);
+
+if (analysis.Valid)
+{
+    Console.WriteLine($"{pk.Nickname} is legal!");
+}
+else
+{
+    Console.WriteLine($"{pk.Nickname} has legality issues:");
+    
+    foreach (var result in analysis.Results)
+    {
+        if (!result.Valid)
+        {
+            Console.WriteLine($"  - {result.Comment}");
+        }
+    }
+}
+```
+
+### Checking Specific Issues
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Check if all checks completed
+if (!analysis.Parsed)
+{
+    Console.WriteLine("Error occurred during analysis");
+    return;
+}
+
+// Categorize issues by severity
+var errors = analysis.Results.Where(r => r.Severity == Severity.Invalid).ToList();
+var warnings = analysis.Results.Where(r => r.Severity == Severity.Fishy).ToList();
+var info = analysis.Results.Where(r => r.Severity == Severity.Valid).ToList();
+
+Console.WriteLine($"Errors: {errors.Count}");
+Console.WriteLine($"Warnings: {warnings.Count}");
+Console.WriteLine($"Valid Checks: {info.Count}");
+
+// Display errors
+if (errors.Any())
+{
+    Console.WriteLine("\nErrors:");
+    foreach (var error in errors)
+    {
+        Console.WriteLine($"  [{error.Identifier}] {error.Comment}");
+    }
+}
+```
+
+### Checking Move Legality
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Access move analysis from LegalInfo
+var moveAnalysis = analysis.Info.Moves;
+
+for (int i = 0; i < moveAnalysis.Length; i++)
+{
+    var moveResult = moveAnalysis[i];
+    var move = pk.GetMove(i);
+    
+    if (move == 0)
+        continue;
+        
+    if (moveResult.Valid)
+    {
+        Console.WriteLine($"Move {i + 1}: Legal");
+    }
+    else
+    {
+        Console.WriteLine($"Move {i + 1}: ILLEGAL - {moveResult.Comment}");
+    }
+}
+
+// Check relearn moves
+var relearnAnalysis = analysis.Info.Relearn;
+for (int i = 0; i < relearnAnalysis.Length; i++)
+{
+    var relearnResult = relearnAnalysis[i];
+    var move = pk.GetRelearnMove(i);
+    
+    if (move == 0)
+        continue;
+        
+    if (relearnResult.Valid)
+    {
+        Console.WriteLine($"Relearn Move {i + 1}: Legal");
+    }
+    else
+    {
+        Console.WriteLine($"Relearn Move {i + 1}: ILLEGAL");
+    }
+}
+```
+
+### Getting Encounter Information
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+var encounter = analysis.EncounterMatch;
+
+Console.WriteLine($"Encounter Type: {encounter.GetType().Name}");
+Console.WriteLine($"Location: {encounter.Location}");
+Console.WriteLine($"Level: {encounter.LevelMin}");
+
+if (encounter is EncounterStatic staticEnc)
+{
+    Console.WriteLine($"Static Encounter: {staticEnc.Species}");
+    Console.WriteLine($"Shiny: {staticEnc.Shiny}");
+}
+else if (encounter is EncounterSlot slot)
+{
+    Console.WriteLine($"Wild Encounter: {slot.Species}");
+    Console.WriteLine($"Slot Type: {slot.Type}");
+}
+else if (encounter is MysteryGift gift)
+{
+    Console.WriteLine($"Mystery Gift: {gift.CardTitle}");
+}
+
+// Check if transferred from older generation
+var original = analysis.EncounterOriginal;
+if (original != encounter)
+{
+    Console.WriteLine($"\nOriginal Encounter (before transfer):");
+    Console.WriteLine($"Type: {original.GetType().Name}");
+    Console.WriteLine($"Generation: {original.Generation}");
+}
+```
+
+### Batch Validation
+
+```csharp
+// Validate all Pokémon in a box
+public void ValidateBox(SaveFile sav, int boxIndex)
+{
+    var boxData = sav.GetBoxData(boxIndex);
+    var results = new List<(PKM pk, bool legal, string issues)>();
+    
+    foreach (var pk in boxData)
+    {
+        if (pk.Species == 0)
+            continue; // Skip empty slots
+            
+        var analysis = new LegalityAnalysis(pk, sav.Personal);
+        
+        var issues = string.Join(", ", 
+            analysis.Results
+                .Where(r => !r.Valid)
+                .Select(r => r.Comment));
+        
+        results.Add((pk, analysis.Valid, issues));
+    }
+    
+    // Display results
+    Console.WriteLine($"Box {boxIndex + 1} Validation Results:");
+    Console.WriteLine($"Legal: {results.Count(r => r.legal)}/{results.Count}");
+    Console.WriteLine($"Illegal: {results.Count(r => !r.legal)}/{results.Count}");
+    
+    // Show illegal Pokémon
+    var illegal = results.Where(r => !r.legal).ToList();
+    if (illegal.Any())
+    {
+        Console.WriteLine("\nIllegal Pokémon:");
+        foreach (var (pk, _, issues) in illegal)
+        {
+            Console.WriteLine($"  {pk.Nickname}: {issues}");
+        }
+    }
+}
+```
+
+### Creating a Report
+
+```csharp
+public string GenerateLegalityReport(PKM pk)
+{
+    var analysis = new LegalityAnalysis(pk);
+    var sb = new System.Text.StringBuilder();
+    
+    sb.AppendLine($"=== Legality Report for {pk.Nickname} ===");
+    sb.AppendLine($"Species: {pk.Species} ({GameInfo.Strings.Species[pk.Species]})");
+    sb.AppendLine($"Level: {pk.CurrentLevel}");
+    sb.AppendLine($"OT: {pk.OriginalTrainerName}");
+    sb.AppendLine($"Status: {(analysis.Valid ? "LEGAL" : "ILLEGAL")}");
+    sb.AppendLine();
+    
+    if (!analysis.Parsed)
+    {
+        sb.AppendLine("ERROR: Analysis failed to complete");
+        return sb.ToString();
+    }
+    
+    sb.AppendLine("Encounter Match:");
+    var enc = analysis.EncounterMatch;
+    sb.AppendLine($"  Type: {enc.GetType().Name}");
+    sb.AppendLine($"  Generation: {enc.Generation}");
+    sb.AppendLine($"  Location: {enc.Location}");
+    sb.AppendLine();
+    
+    sb.AppendLine("Check Results:");
+    foreach (var result in analysis.Results)
+    {
+        var status = result.Severity switch
+        {
+            Severity.Valid => "[✓]",
+            Severity.Fishy => "[!]",
+            Severity.Invalid => "[✗]",
+            _ => "[?]"
+        };
+        sb.AppendLine($"  {status} {result.Identifier}: {result.Comment}");
+    }
+    
+    return sb.ToString();
+}
+
+// Usage
+var report = GenerateLegalityReport(pk);
+Console.WriteLine(report);
+File.WriteAllText("legality_report.txt", report);
+```
+
+### Filtering by Check Type
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Group results by identifier
+var grouped = analysis.Results
+    .GroupBy(r => r.Identifier)
+    .ToDictionary(g => g.Key, g => g.ToList());
+
+// Check specific aspects
+if (grouped.ContainsKey(CheckIdentifier.Move))
+{
+    Console.WriteLine("Move Checks:");
+    foreach (var result in grouped[CheckIdentifier.Move])
+    {
+        Console.WriteLine($"  {result.Comment} [{result.Severity}]");
+    }
+}
+
+if (grouped.ContainsKey(CheckIdentifier.PID))
+{
+    Console.WriteLine("PID Checks:");
+    foreach (var result in grouped[CheckIdentifier.PID])
+    {
+        Console.WriteLine($"  {result.Comment} [{result.Severity}]");
+    }
+}
+
+if (grouped.ContainsKey(CheckIdentifier.IVs))
+{
+    Console.WriteLine("IV Checks:");
+    foreach (var result in grouped[CheckIdentifier.IVs])
+    {
+        Console.WriteLine($"  {result.Comment} [{result.Severity}]");
+    }
+}
+```
+
+## CheckResult Structure
+
+Each check result contains:
+
+- **Severity**: The severity level (Valid, Fishy, Invalid)
+- **Identifier**: The type of check (Move, PID, IVs, etc.)
+- **Comment**: Human-readable description of the result
+- **Valid**: Boolean indicating if the check passed
+
+## Common Check Identifiers
+
+- `CheckIdentifier.Move` - Move legality
+- `CheckIdentifier.RelearnMove` - Relearn move legality
+- `CheckIdentifier.PID` - Personality ID validation
+- `CheckIdentifier.IVs` - Individual Values validation
+- `CheckIdentifier.EVs` - Effort Values validation
+- `CheckIdentifier.Encounter` - Encounter matching
+- `CheckIdentifier.Shiny` - Shiny validation
+- `CheckIdentifier.Gender` - Gender validation
+- `CheckIdentifier.Ball` - Poké Ball legality
+- `CheckIdentifier.RelearnMove` - Relearn moves
+- `CheckIdentifier.Memory` - Memory validation
+- `CheckIdentifier.Ribbon` - Ribbon validation
+
+## See Also
+
+- [PKM Class](/api/pkm) - For working with Pokémon data
+- [SaveFile Class](/api/savefile) - For working with save files
+- [ShowdownSet Class](/api/showdown-set) - For importing/exporting Pokémon sets

@@ -1,80 +1,329 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with PKHeX.Core in minutes - load save files, access Pokémon, and make modifications
 ---
 
-## Get started in three steps
+This guide will walk you through the essential operations in PKHeX.Core: loading save files, accessing Pokémon data, making modifications, and saving changes.
 
-Get your documentation site running locally and make your first customization.
+## Basic Usage
 
-### Step 1: Set up your local environment
+<Steps>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+### Load a Save File
 
-### Step 2: Deploy your changes
+Use the `SaveUtil` class to detect and load save files from any generation:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+```csharp
+using PKHeX.Core;
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+// Load a save file from disk
+string savePath = "path/to/your/save.sav";
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+if (SaveUtil.TryGetSaveFile(savePath, out SaveFile? sav))
+{
+    Console.WriteLine($"Loaded {sav.Version} save file!");
+    Console.WriteLine($"Trainer: {sav.OT}");
+    Console.WriteLine($"Generation: {sav.Generation}");
+}
+else
+{
+    Console.WriteLine("Failed to load save file.");
+}
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  `SaveUtil` automatically detects the save file type and returns the appropriate `SaveFile` subclass (e.g., `SAV7SM`, `SAV8SWSH`, `SAV9SV`).
 </Note>
+
+### Load from Byte Array
+
+You can also load save data from a byte array:
+
+```csharp
+byte[] saveData = File.ReadAllBytes("save.sav");
+Memory<byte> data = new Memory<byte>(saveData);
+
+if (SaveUtil.TryGetSaveFile(data, out SaveFile? sav, savePath))
+{
+    Console.WriteLine($"Game Version: {sav.Version}");
+    Console.WriteLine($"Playtime: {sav.PlayTimeString}");
+}
+```
+
+### Access Pokémon Data
+
+Once you have a save file loaded, you can access Pokémon from boxes or the party:
+
+<CodeGroup>
+
+```csharp Box Pokémon
+// Get all Pokémon from all boxes
+IList<PKM> allPokemon = sav.BoxData;
+Console.WriteLine($"Total box slots: {allPokemon.Count}");
+
+// Get Pokémon from a specific box (0-indexed)
+PKM[] boxPokemon = sav.GetBoxData(box: 0);
+foreach (var pk in boxPokemon)
+{
+    if (pk.Species != 0) // Non-empty slot
+    {
+        Console.WriteLine($"{pk.Nickname} (#{pk.Species}) Lv. {pk.Stat_Level}");
+    }
+}
+
+// Get a specific Pokémon from box and slot
+PKM pokemon = sav.GetBoxSlotAtIndex(box: 0, slot: 0);
+if (pokemon.Species != 0)
+{
+    Console.WriteLine($"Species: {pokemon.Species}");
+    Console.WriteLine($"Nickname: {pokemon.Nickname}");
+    Console.WriteLine($"Level: {pokemon.Stat_Level}");
+    Console.WriteLine($"OT: {pokemon.OriginalTrainerName}");
+}
+```
+
+```csharp Party Pokémon
+// Get all party Pokémon
+IList<PKM> party = sav.PartyData;
+Console.WriteLine($"Party count: {sav.PartyCount}");
+
+for (int i = 0; i < sav.PartyCount; i++)
+{
+    PKM pk = sav.GetPartySlotAtIndex(i);
+    Console.WriteLine($"Party #{i + 1}: {pk.Nickname} Lv. {pk.Stat_Level}");
+    Console.WriteLine($"  HP: {pk.Stat_HPCurrent}/{pk.Stat_HPMax}");
+    Console.WriteLine($"  Moves: {pk.Move1}, {pk.Move2}, {pk.Move3}, {pk.Move4}");
+}
+```
+
+</CodeGroup>
+
+### Modify Pokémon Properties
+
+PKHeX.Core provides full access to all Pokémon properties:
+
+```csharp
+// Get a Pokémon to modify
+PKM pk = sav.GetBoxSlotAtIndex(box: 0, slot: 0);
+
+if (pk.Species != 0)
+{
+    // Modify basic properties
+    pk.Nickname = "Charizard";
+    pk.Stat_Level = 100;
+    pk.CurrentFriendship = 255;
+    
+    // Modify stats (IVs)
+    pk.IV_HP = 31;
+    pk.IV_ATK = 31;
+    pk.IV_DEF = 31;
+    pk.IV_SPA = 31;
+    pk.IV_SPD = 31;
+    pk.IV_SPE = 31;
+    
+    // Modify EVs
+    pk.EV_ATK = 252;
+    pk.EV_SPE = 252;
+    pk.EV_HP = 6;
+    
+    // Modify moves
+    pk.Move1 = 406; // Dragon Rush
+    pk.Move2 = 394; // Flare Blitz
+    pk.Move3 = 369; // Roost
+    pk.Move4 = 332; // Earthquake
+    
+    // Set as shiny (example)
+    pk.PID = EntityPID.GetRandomPID(
+        pk.Species, 
+        pk.Gender, 
+        pk.Version, 
+        pk.Nature, 
+        pk.Form, 
+        pk.ID32
+    );
+    
+    Console.WriteLine("Modified Pokémon properties!");
+}
+```
+
+<Warning>
+  Always validate modifications using PKHeX.Core's legality checker to ensure your Pokémon are legal for online play.
+</Warning>
+
+### Write Pokémon Back to Save
+
+After modifying a Pokémon, write it back to the save file:
+
+```csharp
+// Write the modified Pokémon back to its slot
+sav.SetBoxSlotAtIndex(pk, box: 0, slot: 0);
+
+// Or write to a different slot
+sav.SetBoxSlotAtIndex(pk, box: 1, slot: 5);
+
+// Mark the save as edited (usually automatic)
+Console.WriteLine($"Save edited: {sav.State.Edited}");
+```
+
+### Save Changes to File
+
+Finally, write the modified save file back to disk:
+
+```csharp
+// Get the final save data with checksums updated
+Memory<byte> finalData = sav.Write();
+
+// Write to file
+string outputPath = "path/to/modified_save.sav";
+File.WriteAllBytes(outputPath, finalData.ToArray());
+
+Console.WriteLine($"Save file written to {outputPath}");
+Console.WriteLine($"Checksums valid: {sav.ChecksumsValid}");
+```
+
+<Note>
+  The `Write()` method automatically updates checksums before returning the data, ensuring the save file is valid.
+</Note>
+
+</Steps>
+
+## Complete Example
+
+Here's a complete example that demonstrates the entire workflow:
+
+```csharp Program.cs
+using PKHeX.Core;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        // 1. Load the save file
+        string savePath = "pokemon_save.sav";
+        if (!SaveUtil.TryGetSaveFile(savePath, out SaveFile? sav))
+        {
+            Console.WriteLine("Failed to load save file!");
+            return;
+        }
+
+        Console.WriteLine($"Loaded {sav.Version} save!");
+        Console.WriteLine($"Trainer: {sav.OT}");
+        Console.WriteLine($"TID: {sav.DisplayTID}");
+        Console.WriteLine($"Playtime: {sav.PlayTimeString}");
+        Console.WriteLine();
+
+        // 2. Access the first Pokémon in Box 1
+        PKM firstPokemon = sav.GetBoxSlotAtIndex(box: 0, slot: 0);
+        
+        if (firstPokemon.Species == 0)
+        {
+            Console.WriteLine("First slot is empty!");
+            return;
+        }
+
+        Console.WriteLine($"Found: {firstPokemon.Nickname}");
+        Console.WriteLine($"Species: #{firstPokemon.Species}");
+        Console.WriteLine($"Level: {firstPokemon.Stat_Level}");
+        Console.WriteLine($"Nature: {firstPokemon.Nature}");
+        Console.WriteLine($"Ability: {firstPokemon.Ability}");
+        Console.WriteLine();
+
+        // 3. Modify the Pokémon
+        firstPokemon.Stat_Level = 100;
+        firstPokemon.CurrentFriendship = 255;
+        
+        // Max out IVs
+        firstPokemon.IV_HP = 31;
+        firstPokemon.IV_ATK = 31;
+        firstPokemon.IV_DEF = 31;
+        firstPokemon.IV_SPA = 31;
+        firstPokemon.IV_SPD = 31;
+        firstPokemon.IV_SPE = 31;
+        
+        // Heal to full HP
+        firstPokemon.Stat_HPCurrent = firstPokemon.Stat_HPMax;
+        
+        Console.WriteLine("Modified Pokémon to Level 100 with max IVs!");
+        Console.WriteLine();
+
+        // 4. Write back to save
+        sav.SetBoxSlotAtIndex(firstPokemon, box: 0, slot: 0);
+
+        // 5. Save the modified save file
+        Memory<byte> finalData = sav.Write();
+        File.WriteAllBytes("pokemon_save_modified.sav", finalData.ToArray());
+        
+        Console.WriteLine("Save file modified and written!");
+        Console.WriteLine($"Checksums valid: {sav.ChecksumsValid}");
+    }
+}
+```
+
+## Working with Different Formats
+
+### Export Pokémon to File
+
+Export individual Pokémon to `.pk*` files:
+
+```csharp
+PKM pokemon = sav.GetBoxSlotAtIndex(0, 0);
+
+// Get the encrypted box data (standard format)
+byte[] data = pokemon.EncryptedBoxData;
+
+// Save to file with appropriate extension
+string ext = pokemon.Extension; // e.g., "pk9" for Gen 9
+File.WriteAllBytes($"{pokemon.Nickname}.{ext}", data);
+```
+
+### Import Pokémon from File
+
+```csharp
+byte[] pkData = File.ReadAllBytes("Charizard.pk9");
+Memory<byte> memory = new Memory<byte>(pkData);
+
+// Create PKM object based on save context
+PKM imported = EntityFormat.GetFromBytes(memory.Span, sav.Context);
+
+if (imported != null)
+{
+    // Add to the first empty slot
+    int emptySlot = sav.NextOpenBoxSlot();
+    if (emptySlot >= 0)
+    {
+        sav.SetBoxSlotAtIndex(imported, emptySlot);
+        Console.WriteLine($"Imported {imported.Nickname} to slot {emptySlot}");
+    }
+}
+```
+
+## Key Classes Reference
+
+<CardGroup cols={2}>
+  <Card title="SaveUtil" icon="folder-open">
+    Main class for loading and detecting save file types
+  </Card>
+  <Card title="SaveFile" icon="floppy-disk">
+    Base class for all save file types with box/party access
+  </Card>
+  <Card title="PKM" icon="dragon">
+    Abstract base class representing a Pokémon with all properties
+  </Card>
+  <Card title="EntityFormat" icon="file-code">
+    Utilities for creating PKM objects from raw data
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Save File Concepts" icon="book" href="/concepts/save-files">
+    Deep dive into save file structure and manipulation
+  </Card>
+  <Card title="Pokémon Entities" icon="database" href="/concepts/pokemon-entities">
+    Learn about Pokémon data structures and properties
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/savefile">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>

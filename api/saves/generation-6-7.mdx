@@ -1,0 +1,499 @@
+---
+title: Generation 6 & 7 Save Files
+description: SAV6, SAV7, and SAV7b save file implementations for 3DS games
+---
+
+# Generation 6 & 7 Save Files
+
+Save file implementations for Nintendo 3DS Pokemon games.
+
+## SAV6 (Abstract Base)
+
+Base class for X, Y, Omega Ruby, and Alpha Sapphire save files.
+
+### Class Definition
+
+```csharp
+public abstract class SAV6 : SAV_BEEF, ITrainerStatRecord, ISaveBlock6Core, 
+    IRegionOrigin, IGameSync, IEventFlagProvider37
+```
+
+**Source:** `PKHeX.Core/Saves/SAV6.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 31 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Total Capacity** | 930 Pokemon |
+
+### Key Properties
+
+#### Trainer Information
+
+```csharp
+public override uint ID32 { get; set; }
+public override ushort TID16 { get; set; }
+public override ushort SID16 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+```
+
+#### Regional Information
+
+```csharp
+public byte Region { get; set; } // Geographic region
+public byte Country { get; set; } // Country code
+public byte ConsoleRegion { get; set; } // Console region
+```
+
+#### Game Sync
+
+```csharp
+public int GameSyncIDSize { get; } // 64 bits
+public string GameSyncID { get; set; }
+```
+
+#### Time Tracking
+
+```csharp
+public override int PlayedHours { get; set; }
+public override int PlayedMinutes { get; set; }
+public override int PlayedSeconds { get; set; }
+public override uint SecondsToStart { get; set; }
+public override uint SecondsToFame { get; set; }
+```
+
+#### Game-Specific
+
+```csharp
+public abstract int Badges { get; set; }
+public abstract int Vivillon { get; set; } // Vivillon pattern
+public abstract int BP { get; set; } // Battle Points
+```
+
+### Block Accessors
+
+```csharp
+public abstract MyItem Items { get; }
+public abstract ItemInfo6 ItemInfo { get; }
+public abstract GameTime6 GameTime { get; }
+public abstract Situation6 Situation { get; }
+public abstract PlayTime6 Played { get; }
+public abstract FieldMoveModelSave6 Overworld { get; }
+public abstract MyStatus6 Status { get; }
+public abstract RecordBlock6 Records { get; }
+public abstract EventWork6 EventWork { get; }
+```
+
+### Records System
+
+```csharp
+public int RecordCount { get; } // ~200 records
+public int GetRecord(int recordID)
+public int GetRecordOffset(int recordID)
+public int GetRecordMax(int recordID)
+public void SetRecord(int recordID, int value)
+```
+
+### Form Arguments
+
+Gen 6 introduced form arguments for time-limited forms:
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    PK6 pk6 = (PK6)pk;
+    pk6.UpdateHandler(this);
+    
+    pk6.FormArgumentElapsed = pk6.FormArgumentMaximum = 0;
+    pk6.FormArgumentRemain = (byte)GetFormArgument(pk, isParty);
+    
+    // Furfrou reverts to form 0 when boxed
+    // Hoopa Unbound reverts and changes move
+    if (!isParty && pk.Form != 0)
+    {
+        switch (pk.Species)
+        {
+            case (int)Species.Furfrou:
+                pk.Form = 0;
+                break;
+            case (int)Species.Hoopa:
+                pk.Form = 0;
+                var hsf = pk.GetMoveIndex((int)Move.HyperspaceFury);
+                if (hsf != -1)
+                    pk.SetMove(hsf, (int)Move.HyperspaceHole);
+                break;
+        }
+    }
+    pk.RefreshChecksum();
+}
+
+private static uint GetFormArgument(PKM pk, bool isParty)
+{
+    if (!isParty || pk.Form == 0)
+        return 0;
+    return pk.Species switch
+    {
+        (int)Species.Furfrou => 5u, // 5 days
+        (int)Species.Hoopa => 3u,   // 3 days
+        _ => 0u,
+    };
+}
+```
+
+### JPEG Photo
+
+```csharp
+protected int JPEG { get; set; }
+public virtual string JPEGTitle { get; }
+public virtual Span<byte> GetJPEGData()
+```
+
+---
+
+## SAV7 (Abstract Base)
+
+Base class for Sun, Moon, Ultra Sun, and Ultra Moon save files.
+
+### Class Definition
+
+```csharp
+public abstract class SAV7 : SAV_BEEF, ITrainerStatRecord, ISaveBlock7Main, 
+    IRegionOrigin, IGameSync, IEventFlagProvider37, IBoxDetailName, IBoxDetailWallpaper, 
+    IDaycareStorage, IDaycareEggState, IDaycareRandomState<UInt128>, IMysteryGiftStorageProvider
+```
+
+**Source:** `PKHeX.Core/Saves/SAV7.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 32 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Total Capacity** | 960 Pokemon |
+
+### Key Properties
+
+#### Trainer Information
+
+```csharp
+public override uint ID32 { get; set; }
+public override ushort TID16 { get; set; }
+public override ushort SID16 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public int GameSyncIDSize { get; } // 64 bits
+public string GameSyncID { get; set; }
+public byte Region { get; set; }
+public byte Country { get; set; }
+public byte ConsoleRegion { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+public int MultiplayerSpriteID { get; set; }
+public override uint Money { get; set; }
+```
+
+### Block Accessors
+
+```csharp
+public abstract MyItem Items { get; }
+public abstract MysteryBlock7 MysteryGift { get; }
+public abstract PokeFinder7 PokeFinder { get; }
+public abstract JoinFesta7 Festa { get; }
+public abstract Daycare7 Daycare { get; }
+public abstract RecordBlock6 Records { get; }
+public abstract PlayTime6 Played { get; }
+public abstract MyStatus7 MyStatus { get; }
+public abstract FieldMoveModelSave7 Overworld { get; }
+public abstract Situation7 Situation { get; }
+public abstract ConfigSave7 Config { get; }
+public abstract GameTime7 GameTime { get; }
+public abstract Misc7 Misc { get; }
+public abstract Zukan7 Zukan { get; }
+public abstract BoxLayout7 BoxLayout { get; }
+public abstract BattleTree7 BattleTree { get; }
+public abstract ResortSave7 ResortSave { get; }
+public abstract FieldMenu7 FieldMenu { get; }
+public abstract FashionBlock7 Fashion { get; }
+public abstract EventWork7 EventWork { get; }
+public abstract UnionPokemon7 Fused { get; }
+public abstract GTS7 GTS { get; }
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public Memory<byte> GetDaycareSlot(int index)
+public bool IsDaycareOccupied(int index)
+public void SetDaycareOccupied(int index, bool occupied)
+public bool IsEggAvailable { get; set; }
+public UInt128 Seed { get; set; } // 128-bit seed
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public override int BoxesUnlocked { get; set; }
+public override byte[] BoxFlags { get; set; }
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+```
+
+### Battle Teams
+
+```csharp
+public override StorageSlotSource GetBoxSlotFlags(int index)
+{
+    int team = TeamSlots.IndexOf(index);
+    if (team < 0)
+        return StorageSlotSource.None;
+    
+    team /= 6;
+    var result = (StorageSlotSource)((int)StorageSlotSource.BattleTeam1 << team);
+    if (BoxLayout.GetIsTeamLocked(team))
+        result |= StorageSlotSource.Locked;
+    return result;
+}
+```
+
+### Fused Pokemon
+
+Gen 7 stores fused Pokemon (Kyurem, Necrozma) separately:
+
+```csharp
+private int FusedCount { get; } // 1 for SM, 3 for USUM
+public int GetFusedSlotOffset(int slot)
+```
+
+### Form Arguments
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    PK7 pk7 = (PK7)pk;
+    pk7.UpdateHandler(this);
+    
+    pk7.FormArgumentElapsed = pk7.FormArgumentMaximum = 0;
+    pk7.FormArgumentRemain = (byte)GetFormArgument(pk);
+    
+    pk.RefreshChecksum();
+}
+
+private static uint GetFormArgument(PKM pk)
+{
+    if (pk.Form == 0)
+        return 0;
+    return pk.Species switch
+    {
+        (int)Species.Furfrou => 5u, // 5 days
+        (int)Species.Hoopa => 3u,   // 3 days
+        _ => 0u,
+    };
+}
+```
+
+### QR Code Support
+
+```csharp
+public abstract void UpdateQrConstants();
+```
+
+### MemeCrypto Signature
+
+Gen 7 uses MemeCrypto signature system:
+
+```csharp
+protected override Memory<byte> GetFinalData()
+{
+    BoxLayout.SaveBattleTeams();
+    SetChecksums();
+    
+    var result = Data.ToArray();
+    MemeCrypto.SignInPlace(result);
+    return result;
+}
+
+protected void ClearMemeCrypto()
+{
+    Data.Slice(AllBlocks[36].Offset + 0x100, MemeCrypto.SaveFileSignatureLength).Clear();
+}
+```
+
+---
+
+## SAV7b
+
+Save file for Pokemon: Let's Go, Pikachu! and Let's Go, Eevee!
+
+### Class Definition
+
+```csharp
+public sealed class SAV7b : SAV_BEEF, ISaveBlock7b, IGameSync, 
+    IMysteryGiftStorageProvider, IStorageCleanup
+```
+
+**Source:** `PKHeX.Core/Saves/SAV7b.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 40 |
+| **Box Slot Count** | 25 (1000 total) |
+| **Party Size** | 6 |
+| **Total Capacity** | 1,000 Pokemon |
+
+### Unique Features
+
+#### Box Layout
+
+Let's Go uses a different box layout:
+
+```csharp
+public override int BoxSlotCount => 25; // 5x5 grid
+public override int BoxCount => 40;     // 1000/25
+public override bool HasParty => false; // Handled via team slots
+```
+
+#### Storage Compression
+
+```csharp
+public bool FixStoragePreWrite() => Blocks.Storage.CompressStorage();
+```
+
+#### Starter Pokemon
+
+```csharp
+public override StorageSlotSource GetBoxSlotFlags(int index)
+{
+    var result = StorageSlotSource.None;
+    var header = Blocks.Storage.PokeListInfo;
+    int position = header.AsSpan(0, 6).IndexOf(index);
+    if (position >= 0)
+        result = (StorageSlotSource)((int)StorageSlotSource.Party1 << position);
+    if (header[PokeListHeader.STARTER] == index)
+        result |= StorageSlotSource.Starter;
+    return result;
+}
+```
+
+### Block Accessors
+
+```csharp
+public SaveBlockAccessor7b Blocks { get; }
+public MyItem7b Items { get; }
+public Coordinates7b Coordinates { get; }
+public Misc7b Misc { get; }
+public Zukan7b Zukan { get; }
+public MyStatus7b Status { get; }
+public PlayTime7b Played { get; }
+public ConfigSave7b Config { get; }
+public EventWork7b EventWork { get; }
+public PokeListHeader Storage { get; }
+public WB7Records GiftRecords { get; }
+public Daycare7b Daycare { get; }
+public CaptureRecords Captured { get; }
+public GoParkStorage Park { get; } // Pokemon GO Park
+public PlayerGeoLocation7b PlayerGeoLocation { get; }
+```
+
+### Go Park
+
+Integration with Pokemon GO:
+
+```csharp
+public GoParkStorage Park { get; }
+// Stores Pokemon transferred from Pokemon GO
+```
+
+### Capture Records
+
+```csharp
+public CaptureRecords Captured { get; }
+// Tracks capture combos and streaks
+```
+
+### Spirit Mood
+
+Let's Go Pokemon have spirit/mood mechanics:
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    var pb7 = (PB7)pk;
+    if (!isParty && !pb7.IsStarter)
+        pb7.ResetSpiritMood();
+    
+    pb7.UpdateHandler(this);
+    pb7.RefreshChecksum();
+}
+```
+
+### Game Sync
+
+```csharp
+public int GameSyncIDSize { get; } // 64 bits
+public string GameSyncID { get; set; }
+```
+
+## Technical Notes
+
+### SAV_BEEF Base Class
+
+Gen 6, 7, and 7b all inherit from `SAV_BEEF`, which provides:
+
+- Block-based save structure
+- Checksum validation per block
+- Automatic block detection
+- Memory-efficient data handling
+
+### Block System
+
+```csharp
+public abstract IReadOnlyList<BlockInfo> AllBlocks { get; }
+protected override void SetChecksums() => AllBlocks.SetChecksums(Data);
+public override bool ChecksumsValid => AllBlocks.GetChecksumsValid(Data);
+public override string ChecksumInfo => AllBlocks.GetChecksumInfo(Data);
+```
+
+### String Encoding
+
+- **Gen 6**: UTF-16 with custom encoding (StringConverter6)
+- **Gen 7/7b**: UTF-16 with custom encoding (StringConverter7/StringConverter8)
+
+### PKM Format
+
+- **Gen 6**: PK6 (0xE8 bytes stored, 0x104 bytes party)
+- **Gen 7**: PK7 (0xE8 bytes stored, 0x104 bytes party)
+- **Gen 7b**: PB7 (0x104 bytes for both stored and party)
+
+### Record Tracking
+
+Gen 6 and 7 extensively track player statistics:
+
+```csharp
+protected override void SetRecord(PKM pk) => AddCountAcquired(pk);
+
+private void AddCountAcquired(PKM pk)
+{
+    Records.AddRecord(pk.WasEgg ? 008 : 006); // egg hatched or captured
+    if (pk.CurrentHandler == 1)
+        Records.AddRecord(011); // received in trade
+    if (!pk.WasEgg)
+    {
+        Records.AddRecord(004); // wild encounters
+        Records.AddRecord(042); // balls thrown (Gen 7)
+    }
+}
+```

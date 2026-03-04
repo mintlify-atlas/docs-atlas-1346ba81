@@ -1,0 +1,450 @@
+---
+title: Editing Pokémon Properties
+description: Comprehensive guide to modifying Pokémon properties in PKHeX.Core
+---
+
+## Overview
+
+Once you have a Pokémon entity, you can modify its properties extensively. This guide covers common and advanced property modifications.
+
+## Basic Properties
+
+### Species and Form
+
+Change a Pokémon's species or form:
+
+```csharp
+var pk = new PK9();
+
+// Change species
+pk.Species = (ushort)Species.Charizard;
+
+// Change form (e.g., Mega Evolution, Regional Forms)
+pk.Form = 1; // Mega Charizard X
+
+// For Pokémon with special forms
+var rotom = new PK9
+{
+    Species = (ushort)Species.Rotom,
+    Form = 1 // Heat Rotom
+};
+```
+
+### Level and Experience
+
+Modify level and experience:
+
+```csharp
+// Set level directly
+pk.CurrentLevel = 100;
+
+// Set experience for specific level
+pk.EXP = Experience.GetEXP(100, pk.PersonalInfo.EXPGrowth);
+
+// Get current level from experience
+int level = Experience.GetLevel(pk.EXP, pk.PersonalInfo.EXPGrowth);
+```
+
+### Nickname and Language
+
+```csharp
+pk.IsNicknamed = true;
+pk.Nickname = "Blaze";
+pk.Language = (int)LanguageID.English;
+
+// Clear nickname (use species name)
+pk.IsNicknamed = false;
+pk.Nickname = pk.Nickname; // Will display species name
+```
+
+## Stats and Training
+
+### Individual Values (IVs)
+
+```csharp
+// Set individual stats
+pk.IV_HP = 31;
+pk.IV_ATK = 31;
+pk.IV_DEF = 31;
+pk.IV_SPA = 0;  // For physical attackers
+pk.IV_SPD = 31;
+pk.IV_SPE = 31;
+
+// Randomize IVs
+pk.SetRandomIVs();
+
+// Set perfect IVs
+pk.SetRandomIVs(flawless: 6);
+
+// Get IV32 (all IVs as single value)
+uint iv32 = pk.IV32;
+```
+
+<Note>
+IVs range from 0-31. Setting all IVs to 31 creates a "perfect" Pokémon.
+</Note>
+
+### Effort Values (EVs)
+
+```csharp
+// Standard competitive EV spread
+pk.EV_HP = 252;
+pk.EV_ATK = 252;
+pk.EV_DEF = 0;
+pk.EV_SPA = 0;
+pk.EV_SPD = 0;
+pk.EV_SPE = 6;
+
+// Clear all EVs
+pk.EVs = new int[] { 0, 0, 0, 0, 0, 0 };
+
+// Get EV total (should not exceed 510)
+int evTotal = pk.EVTotal;
+```
+
+### Nature
+
+Natures affect stat growth:
+
+```csharp
+// Set nature
+pk.Nature = Nature.Adamant;
+
+// Gen 8+ supports Stat Nature (mints)
+pk.StatNature = Nature.Jolly; // Different from actual nature
+
+// Get nature modifiers
+var (plus, minus) = pk.Nature.GetNatureModification();
+```
+
+## Moves and Abilities
+
+### Move Sets
+
+```csharp
+// Set moves
+pk.Move1 = (ushort)Move.FireBlast;
+pk.Move2 = (ushort)Move.DragonPulse;
+pk.Move3 = (ushort)Move.AirSlash;
+pk.Move4 = (ushort)Move.Roost;
+
+// Set move PP
+pk.Move1_PP = pk.GetMovePP(pk.Move1, pk.Move1_PPUps);
+
+// Set PP Ups (increases max PP)
+pk.Move1_PPUps = 3; // Max PP Ups
+
+// Relearn moves (Gen 6+)
+if (pk is PK9 pk9)
+{
+    pk9.RelearnMove1 = (ushort)Move.Ember;
+    pk9.RelearnMove2 = (ushort)Move.DragonBreath;
+}
+```
+
+### Abilities
+
+```csharp
+// Set ability
+pk.Ability = (int)Ability.Blaze;
+
+// Set ability number (1, 2, or 4 for Hidden Ability)
+pk.AbilityNumber = 4; // Hidden Ability
+
+// Refresh ability based on ability number
+pk.RefreshAbility(pk.AbilityNumber);
+```
+
+## Trainer Information
+
+### Original Trainer (OT)
+
+```csharp
+pk.OriginalTrainerName = "Ash";
+pk.OriginalTrainerGender = 0; // Male
+pk.TID16 = 12345; // Trainer ID (visible)
+pk.SID16 = 54321; // Secret ID (hidden)
+
+// Or use combined ID32
+pk.ID32 = 123456789;
+
+// Get display IDs
+uint displayTID = pk.DisplayTID;
+uint displaySID = pk.DisplaySID;
+```
+
+### Current Handler (Gen 6+)
+
+For Pokémon that have been traded:
+
+```csharp
+if (pk is PK9 pk9)
+{
+    pk9.HandlingTrainerName = "Red";
+    pk9.HandlingTrainerGender = 0;
+    pk9.CurrentHandler = 1; // 0 = OT, 1 = HT
+}
+```
+
+### Friendship
+
+```csharp
+// Set friendship (0-255)
+pk.CurrentFriendship = 255; // Max friendship
+
+// Friendship affects evolution and certain moves
+pk.CurrentFriendship = 220; // Common evolution threshold
+```
+
+## Met Information
+
+### Met Location and Date
+
+```csharp
+// Set where Pokémon was met
+pk.MetLocation = 6; // Pallet Town (location varies by game)
+pk.MetLevel = 5;
+
+// Set met date
+pk.MetDate = new DateTime(2024, 1, 1);
+
+// Egg information
+pk.IsEgg = false;
+pk.EggLocation = 0;
+pk.EggMetDate = DateTime.Now;
+```
+
+### Version and Origin
+
+```csharp
+pk.Version = (byte)GameVersion.SV; // Scarlet/Violet
+pk.MetLocation = 6;
+pk.Ball = (byte)Ball.Poke;
+```
+
+## Pokérus
+
+The beneficial virus that doubles EV gains:
+
+```csharp
+// Give active Pokérus
+pk.PokerusStrain = 1; // Strain (1-4)
+pk.PokerusDays = 1;   // Days remaining (1-4)
+
+// Cured Pokérus (permanent EV bonus)
+pk.PokerusStrain = 1;
+pk.PokerusDays = 0;
+
+// Check Pokérus status
+if (pk.IsPokerusInfected)
+    Console.WriteLine("Has active Pokérus");
+if (pk.IsPokerusCured)
+    Console.WriteLine("Cured Pokérus (permanent bonus)");
+```
+
+## Shiny Pokémon
+
+### Making Pokémon Shiny
+
+```csharp
+// Make shiny (random type)
+pk.SetShiny();
+
+// Check if shiny
+if (pk.IsShiny)
+    Console.WriteLine("This Pokémon is shiny!");
+
+// Force specific shiny type (Gen 8+)
+pk.SetShinySID(Shiny.AlwaysStar);   // Star shiny
+pk.SetShinySID(Shiny.AlwaysSquare); // Square shiny (rare)
+
+// Get shiny value
+uint psv = pk.PSV; // Personal Shiny Value
+uint tsv = pk.TSV; // Trainer Shiny Value
+```
+
+## Ribbons and Marks
+
+Pokémon can have various ribbons and marks:
+
+```csharp
+if (pk is IRibbonSetCommon9 ribbons)
+{
+    ribbons.RibbonChampionPaldea = true;
+    ribbons.RibbonMasterRank = true;
+}
+
+// Marks (Gen 8+)
+if (pk is IRibbonSetMarks marks)
+{
+    marks.RibbonMarkLunchtime = true;
+    marks.RibbonMarkCloudy = true;
+}
+
+// Set affixed ribbon (displays with name)
+if (pk is IRibbonSetAffixed affixed)
+{
+    affixed.AffixedRibbon = AffixedRibbon.ChampionPaldea;
+}
+```
+
+## Generation-Specific Properties
+
+### Gen 9: Tera Type
+
+```csharp
+if (pk is ITeraType tera)
+{
+    tera.TeraTypeOriginal = MoveType.Electric;
+    tera.TeraTypeOverride = MoveType.Flying; // Changed via Tera Shard
+}
+```
+
+### Gen 8: Dynamax Level
+
+```csharp
+if (pk is PK8 pk8)
+{
+    pk8.DynamaxLevel = 10; // Max level
+    pk8.CanGigantamax = true; // Can Gigantamax
+}
+```
+
+### Gen 7: Hyper Training
+
+```csharp
+if (pk is IHyperTrain ht && pk.CurrentLevel == 100)
+{
+    ht.HT_HP = true;
+    ht.HT_ATK = true;
+    ht.HT_DEF = true;
+    ht.HT_SPA = true;
+    ht.HT_SPD = true;
+    ht.HT_SPE = true;
+}
+```
+
+### Gen 6+: Contest Stats
+
+```csharp
+if (pk is IContestStats contest)
+{
+    contest.ContestCool = 255;
+    contest.ContestBeauty = 255;
+    contest.ContestCute = 255;
+    contest.ContestSmart = 255;
+    contest.ContestTough = 255;
+    contest.ContestSheen = 255;
+}
+```
+
+## Held Items
+
+```csharp
+// Set held item
+pk.HeldItem = (int)Item.ChoiceScarf;
+
+// Remove held item
+pk.HeldItem = 0;
+```
+
+## Memory and Affection (Gen 6+)
+
+```csharp
+if (pk is ITrainerMemories mem)
+{
+    mem.OriginalTrainerMemory = 1;
+    mem.OriginalTrainerMemoryIntensity = 3;
+    mem.OriginalTrainerMemoryFeeling = 5;
+    mem.OriginalTrainerMemoryVariable = 1;
+}
+```
+
+## Validation and Finalization
+
+### Always Refresh After Editing
+
+```csharp
+// After any modifications, refresh the checksum
+pk.RefreshChecksum();
+
+// Verify validity
+if (!pk.Valid)
+{
+    Console.WriteLine("Warning: Pokémon data may be invalid");
+}
+
+// Check checksum explicitly
+if (!pk.ChecksumValid)
+{
+    pk.RefreshChecksum();
+}
+```
+
+<Warning>
+Always call `RefreshChecksum()` after modifying properties. Without this, the Pokémon data will be invalid.
+</Warning>
+
+## Batch Editing with Reflection
+
+For advanced scenarios, you can use reflection to copy properties:
+
+```csharp
+var source = new PK9 { Species = 25, CurrentLevel = 50 };
+var destination = new PK9();
+
+// Copy all properties from source to destination
+source.TransferPropertiesWithReflection(destination);
+```
+
+## Complete Editing Example
+
+```csharp
+public void EditPokemon(PKM pk)
+{
+    // Modify basic properties
+    pk.CurrentLevel = 100;
+    pk.Nature = Nature.Jolly;
+    pk.CurrentFriendship = 255;
+    
+    // Perfect IVs
+    pk.IV_HP = 31;
+    pk.IV_ATK = 31;
+    pk.IV_DEF = 31;
+    pk.IV_SPA = 31;
+    pk.IV_SPD = 31;
+    pk.IV_SPE = 31;
+    
+    // Optimal EVs
+    pk.EV_ATK = 252;
+    pk.EV_SPE = 252;
+    pk.EV_HP = 6;
+    
+    // Change moves
+    pk.Move1 = (ushort)Move.CloseCombat;
+    pk.Move1_PP = pk.GetMovePP(pk.Move1, 3);
+    pk.Move1_PPUps = 3;
+    
+    // Make shiny
+    pk.SetShiny();
+    
+    // Add Pokérus
+    pk.PokerusStrain = 1;
+    pk.PokerusDays = 4;
+    
+    // Gen 9 specific
+    if (pk is ITeraType tera)
+    {
+        tera.TeraTypeOverride = MoveType.Fighting;
+    }
+    
+    // Always finalize
+    pk.RefreshChecksum();
+}
+```
+
+## Next Steps
+
+- Learn about [Showdown Format](/guides/pokemon/showdown-format) for importing team data
+- See [Converting Formats](/guides/pokemon/converting-formats) for generation transfers
+- Check [Creating Pokémon](/guides/pokemon/creating-pokemon) for initialization

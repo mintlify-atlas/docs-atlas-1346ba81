@@ -1,0 +1,424 @@
+---
+title: Generation 9 Save Files
+description: SAV9SV save file implementation for Pokemon Scarlet and Violet
+---
+
+# Generation 9 Save Files
+
+Save file implementation for Pokemon Scarlet and Violet on Nintendo Switch.
+
+## SAV9SV
+
+Save file for Pokemon Scarlet and Violet.
+
+### Class Definition
+
+```csharp
+public sealed class SAV9SV : SaveFile, ISaveBlock9Main, ISCBlockArray, 
+    ISaveFileRevision, IBoxDetailName, IBoxDetailWallpaper
+```
+
+**Source:** `PKHeX.Core/Saves/SAV9SV.cs`
+
+### Save Revisions
+
+Scarlet and Violet has 3 save revisions based on DLC:
+
+```csharp
+public int SaveRevision { get; } // 0, 1, or 2
+public string SaveRevisionString { get; }
+
+// Revision 0: "-Base" - Base game (Vanilla)
+// Revision 1: "-TM" - Teal Mask (Kitakami)
+// Revision 2: "-ID" - Indigo Disk (Blueberry Academy)
+```
+
+### Storage Specifications
+
+| Property | Base | Teal Mask | Indigo Disk |
+|----------|------|-----------|-------------|
+| **Box Count** | 32 | 32 | 32 |
+| **Max Species** | 512 | 565 | 590 |
+| **Max Move** | 919 | 920 | 921 |
+| **Max Item** | 2268 | 2400 | 2557 |
+| **Max Ability** | 307 | 308 | 309 |
+
+### SCBlock System
+
+Gen 9 uses the SCBlock architecture introduced in Gen 8:
+
+```csharp
+public IReadOnlyList<SCBlock> AllBlocks { get; }
+public SCBlockAccessor Accessor { get; }
+public T GetValue<T>(uint key) where T : struct
+public void SetValue<T>(uint key, T value) where T : struct
+```
+
+### Block Accessors
+
+```csharp
+public SaveBlockAccessor9SV Blocks { get; }
+public Box9 BoxInfo { get; }
+public Party9 PartyInfo { get; }
+public MyItem9 Items { get; }
+public MyStatus9 MyStatus { get; }
+public Zukan9 Zukan { get; }
+public BoxLayout9 BoxLayout { get; }
+public PlayTime9 Played { get; }
+public ConfigSave9 Config { get; }
+public TeamIndexes8 TeamIndexes { get; }
+public Epoch1900DateTimeValue LastSaved { get; }
+public Epoch1970Value LastDateCycle { get; }
+public PlayerFashion9 PlayerFashion { get; }
+public PlayerAppearance9 PlayerAppearance { get; }
+public RaidSpawnList9 RaidPaldea { get; }
+public RaidSpawnList9 RaidKitakami { get; }
+public RaidSpawnList9 RaidBlueberry { get; }
+public RaidSevenStar9 RaidSevenStar { get; }
+public Epoch1900DateValue EnrollmentDate { get; } // Blueberry Academy
+public BlueberryQuestRecord9 BlueberryQuestRecord { get; }
+public BlueberryClubRoom9 BlueberryClubRoom { get; }
+```
+
+### Key Properties
+
+#### Trainer Information
+
+```csharp
+public override uint ID32 { get; set; }
+public override ushort TID16 { get; set; }
+public override ushort SID16 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+```
+
+#### Currency
+
+```csharp
+public override uint Money { get; set; }
+public uint LeaguePoints { get; set; }
+public uint BlueberryPoints { get; set; } // Indigo Disk only
+```
+
+### Position & Rotation
+
+```csharp
+public Span<byte> Coordinates { get; }
+public float X { get; set; }
+public float Y { get; set; }
+public float Z { get; set; }
+
+public Span<byte> PlayerRotation { get; }
+public float RX { get; set; } // Quaternion rotation
+public float RY { get; set; }
+public float RZ { get; set; }
+public float RW { get; set; }
+
+public void SetCoordinates(float x, float y, float z)
+public void SetPlayerRotation(float rx, float ry, float rz, float rw)
+```
+
+### Box Management
+
+```csharp
+public override int BoxCount { get; } // 32
+public override int CurrentBox { get; set; }
+public override int BoxesUnlocked { get; set; }
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+
+// Legend wallpaper unlock flag
+public byte BoxLegendWallpaperFlag { get; set; }
+```
+
+### Battle Teams
+
+```csharp
+public TeamIndexes8 TeamIndexes { get; }
+
+public override StorageSlotSource GetBoxSlotFlags(int index)
+{
+    int team = TeamIndexes.TeamSlots.IndexOf(index);
+    if (team < 0)
+        return StorageSlotSource.None;
+    
+    team /= 6;
+    var result = (StorageSlotSource)((int)StorageSlotSource.BattleTeam1 << team);
+    if (TeamIndexes.GetIsTeamLocked(team))
+        result |= StorageSlotSource.Locked;
+    return result;
+}
+```
+
+### Tera Raid Battles
+
+```csharp
+public RaidSpawnList9 RaidPaldea { get; }    // Base game raids
+public RaidSpawnList9 RaidKitakami { get; }  // Teal Mask raids
+public RaidSpawnList9 RaidBlueberry { get; } // Indigo Disk raids
+public RaidSevenStar9 RaidSevenStar { get; } // 7-star event raids
+```
+
+### Throw Style (Indigo Disk)
+
+```csharp
+public ThrowStyle9 ThrowStyle { get; set; }
+
+public enum ThrowStyle9
+{
+    OriginalStyle,
+    SmugElegant,    // Baseball Club 1
+    TwirlingNinja,  // Baseball Club 2
+    Champion,       // Baseball Club 3
+}
+
+public void UnlockAllThrowStyles()
+{
+    // Unlocks all throwing styles and updates support board
+}
+```
+
+### Form Arguments
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    PK9 pk9 = (PK9)pk;
+    pk9.UpdateHandler(this);
+    
+    if (FormArgumentUtil.IsFormArgumentTypeDatePair(pk9.Species, pk9.Form))
+    {
+        pk9.FormArgumentElapsed = pk9.FormArgumentMaximum = 0;
+        pk9.FormArgumentRemain = (byte)GetFormArgument(pk9);
+    }
+    pk9.RefreshChecksum();
+}
+
+private static uint GetFormArgument(PKM pk)
+{
+    if (pk.Form == 0) return 0;
+    return pk.Species switch
+    {
+        (int)Species.Furfrou => 5u,
+        // Hoopa no longer sets Form Argument in Gen 9
+        _ => 0u,
+    };
+}
+```
+
+### Legendary Stakes
+
+Collect stakes to unlock the Treasures of Ruin:
+
+```csharp
+public void CollectAllStakes()
+{
+    // Sets all stake collection flags for:
+    // - Ting-Lu (Rock stakes)
+    // - Chien-Pao (Ice stakes)
+    // - Wo-Chien (Grass stakes)
+    // - Chi-Yu (Fire stakes)
+    
+    // Removes 8 stakes from each shrine (32 total)
+    // Updates shrine seal states
+}
+```
+
+### TM Recipes
+
+```csharp
+public void UnlockAllTMRecipes()
+{
+    // Unlocks all 229 TM recipes
+    for (int i = 1; i <= 229; i++)
+    {
+        var flag = $"FSYS_UI_WAZA_MACHINE_RELEASE_{i:000}";
+        var hash = (uint)FnvHash.HashFnv1a_64(flag);
+        if (Accessor.TryGetBlock(hash, out var block))
+            block.ChangeBooleanType(SCTypeCode.Bool2);
+    }
+}
+```
+
+### Snacksworth Legendaries (Indigo Disk)
+
+```csharp
+public void ActivateSnacksworthLegendaries()
+{
+    // Marks legendary Pokemon as available from Snacksworth
+    // After completing Blueberry Quests (BBQs)
+    for (int i = 13; i <= 37; i++)
+    {
+        var flag = $"WEVT_S2_SUB_{i:000}_STATE";
+        var hash = (uint)FnvHash.HashFnv1a_64(flag);
+        if (Accessor.TryGetBlock(hash, out var block))
+            block.SetValue(1); // 1 = appeared (not captured)
+    }
+}
+```
+
+### Blueberry Academy (Indigo Disk)
+
+#### Coaches
+
+```csharp
+public void UnlockAllCoaches()
+{
+    // Unlocks all special coaches for BB League rematches:
+    // - Champions (Cynthia, etc.)
+    // - Teachers
+    // - Friends & Rivals
+}
+```
+
+#### Enrollment Date
+
+```csharp
+public Epoch1900DateValue EnrollmentDate { get; }
+// Tracks when player first enrolled at Blueberry Academy
+```
+
+#### Blueberry Quests
+
+```csharp
+public BlueberryQuestRecord9 BlueberryQuestRecord { get; }
+// Tracks completed Blueberry Quests (BBQs)
+```
+
+#### Club Room
+
+```csharp
+public BlueberryClubRoom9 BlueberryClubRoom { get; }
+// Manages club room customization and support board
+```
+
+### Player Customization
+
+```csharp
+public PlayerFashion9 PlayerFashion { get; }
+// Unlocked clothing and accessories
+
+public PlayerAppearance9 PlayerAppearance { get; }
+// Current player appearance settings
+```
+
+### No Traditional Checksums
+
+```csharp
+public override bool ChecksumsValid => true;
+public override string ChecksumInfo => string.Empty;
+protected override void SetChecksums() { }
+```
+
+## Technical Notes
+
+### SwishCrypto
+
+Gen 9 uses SwishCrypto encryption like Gen 8 Switch games:
+
+```csharp
+public SAV9SV(Memory<byte> data) : this(SwishCrypto.Decrypt(data.Span)) { }
+protected override Memory<byte> GetFinalData() => SwishCrypto.Encrypt(AllBlocks);
+```
+
+### SCBlock Keys
+
+Blocks are accessed using FNV-1a hashed string keys:
+
+```csharp
+// Example: Money block
+public const uint KMoney = 0x19E41E69; // FnvHash.HashFnv1a_64("MONEY")
+public override uint Money 
+{ 
+    get => (uint)Blocks.GetBlockValue(SaveBlockAccessor9SV.KMoney); 
+    set => Blocks.SetBlockValue(SaveBlockAccessor9SV.KMoney, value); 
+}
+```
+
+### Save Revision Detection
+
+Revision is detected by checking for DLC-specific blocks:
+
+```csharp
+public SAV9SV(IReadOnlyList<SCBlock> blocks) : base(Memory<byte>.Empty)
+{
+    AllBlocks = blocks;
+    Blocks = new SaveBlockAccessor9SV(this);
+    SaveRevision = Blocks.HasBlock(SaveBlockAccessor9SV.KBlueberryPoints) ? 2 
+                 : RaidKitakami.Data.Length != 0 ? 1 
+                 : 0;
+    Initialize();
+}
+```
+
+### PKM Format
+
+Gen 9 uses PK9 format:
+
+- **Stored Size**: 0x158 bytes
+- **Party Size**: 0x168 bytes
+- Both formats stored in boxes (party format)
+
+```csharp
+protected override int SIZE_STORED => PokeCrypto.SIZE_9STORED;  // 0x158
+protected override int SIZE_PARTY  => PokeCrypto.SIZE_9PARTY;   // 0x168
+public override int SIZE_BOXSLOT   => PokeCrypto.SIZE_9PARTY;   // 0x168
+```
+
+### String Encoding
+
+Gen 9 uses StringConverter8 (same as Gen 8):
+
+```csharp
+public override string GetString(ReadOnlySpan<byte> data)
+    => StringConverter8.GetString(data);
+```
+
+### Version Validation
+
+```csharp
+public override bool IsVersionValid() 
+    => Version is GameVersion.SL or GameVersion.VL;
+```
+
+## Differences from Gen 8
+
+### Multi-Region Raids
+
+Gen 9 tracks raids across three separate regions:
+
+- **Paldea**: Base game region
+- **Kitakami**: Teal Mask DLC region  
+- **Blueberry**: Indigo Disk DLC region (underwater)
+
+### Open World Coordinates
+
+Full 3D positioning with quaternion rotation:
+
+```csharp
+// Position (Vector3)
+float X, Y, Z
+
+// Rotation (Quaternion)
+float RX, RY, RZ, RW
+```
+
+### Multiple Currencies
+
+```csharp
+uint Money          // Standard Poke Dollars
+uint LeaguePoints   // LP from raids
+uint BlueberryPoints // BP from Blueberry Academy (DLC 2)
+```
+
+### Tera Types
+
+Pokemon can have Tera Types different from their regular types, tracked in the PKM data but influenced by save file raid encounters.
+
+### Records System
+
+Gen 9 currently does not expose a traditional records system like Gen 6-8 (commented out in the code).

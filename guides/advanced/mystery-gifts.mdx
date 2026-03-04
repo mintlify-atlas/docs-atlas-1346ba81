@@ -1,0 +1,308 @@
+---
+title: "Mystery Gift Files"
+description: "Working with Mystery Gift data across all generations"
+icon: "gift"
+---
+
+## Overview
+
+PKHeX provides comprehensive support for Mystery Gift files across all Pokémon generations. Mystery Gifts are special distributions that can contain Pokémon, items, or other rewards. Each generation uses different file formats with varying extensions and structures.
+
+## Supported Formats
+
+PKHeX supports the following Mystery Gift formats:
+
+| Format | Extension | Generation | Description |
+|--------|-----------|------------|-------------|
+| PGT | `.pgt` | Gen 4 | Gift Template (inner data only) |
+| PCD | `.pcd`, `.wc4` | Gen 4 | Pokémon Card with gift data |
+| PGF | `.pgf` | Gen 5 | Gen 5 Gift Format |
+| WC6 | `.wc6`, `.wc6full` | Gen 6 | Wonder Card for X/Y/OR/AS |
+| WC7 | `.wc7`, `.wc7full` | Gen 7 | Wonder Card for Sun/Moon/US/UM |
+| WB7 | `.wb7` | Gen 7 | Wonder Box (Let's Go) |
+| WC8 | `.wc8` | Gen 8 | Wonder Card (Sword/Shield) |
+| WB8 | `.wb8` | Gen 8 | Wonder Box (BD/SP) |
+| WA8 | `.wa8` | Gen 8 | Wonder Album (Legends Arceus) |
+| WC9 | `.wc9` | Gen 9 | Wonder Card (Scarlet/Violet) |
+| WA9 | `.wa9` | Gen 9 | Wonder Album (Gen 9) |
+
+## Loading Mystery Gifts
+
+### From File
+
+```csharp
+using PKHeX.Core;
+
+// Load a Mystery Gift file
+var data = File.ReadAllBytes("event.wc8");
+var ext = Path.GetExtension("event.wc8");
+
+// Parse the gift data
+var gift = MysteryGift.GetMysteryGift(data, ext);
+
+if (gift != null)
+{
+    Console.WriteLine($"Gift Type: {gift.Type}");
+    Console.WriteLine($"Card Title: {gift.CardTitle}");
+    Console.WriteLine($"Card ID: {gift.CardID}");
+}
+```
+
+### Auto-Detection
+
+PKHeX can automatically detect the format based on file size:
+
+```csharp
+// Auto-detect format from data length only
+var data = File.ReadAllBytes("mystery_gift.bin");
+var gift = MysteryGift.GetMysteryGift(data);
+
+if (gift is WC8 wc8)
+{
+    Console.WriteLine($"Sword/Shield Wonder Card detected");
+    Console.WriteLine($"Repeatable: {wc8.GiftRepeatable}");
+}
+else if (gift is WC9 wc9)
+{
+    Console.WriteLine($"Scarlet/Violet Wonder Card detected");
+}
+```
+
+### From Folder
+
+Load all valid Mystery Gift files from a directory:
+
+```csharp
+using PKHeX.Core;
+
+// Recursively load all gifts from a folder
+var gifts = MysteryUtil.GetGiftsFromFolder(@"C:\Events");
+
+foreach (var gift in gifts)
+{
+    Console.WriteLine($"{gift.FileName} - {gift.CardTitle}");
+    
+    if (gift.IsEntity)
+    {
+        Console.WriteLine($"  Species: {gift.Species}");
+        Console.WriteLine($"  Level: {gift.Level}");
+    }
+    else if (gift.IsItem)
+    {
+        Console.WriteLine($"  Item ID: {gift.ItemID}");
+        Console.WriteLine($"  Quantity: {gift.Quantity}");
+    }
+}
+```
+
+## Working with Gift Properties
+
+### Checking Gift Type
+
+```csharp
+if (gift.IsEntity)
+{
+    // This gift contains a Pokémon
+    Console.WriteLine($"Pokémon: {gift.Species}");
+    Console.WriteLine($"Form: {gift.Form}");
+    Console.WriteLine($"Level: {gift.Level}");
+    Console.WriteLine($"Ball: {gift.Ball}");
+    Console.WriteLine($"OT: {gift.OriginalTrainerName}");
+    Console.WriteLine($"TID: {gift.TID16}");
+    
+    // Check moves
+    var moves = gift.Moves;
+    Console.WriteLine($"Move 1: {moves.Move1}");
+    Console.WriteLine($"Move 2: {moves.Move2}");
+    Console.WriteLine($"Move 3: {moves.Move3}");
+    Console.WriteLine($"Move 4: {moves.Move4}");
+}
+else if (gift.IsItem)
+{
+    // This gift contains an item
+    Console.WriteLine($"Item: {gift.ItemID} x{gift.Quantity}");
+}
+```
+
+### Generation 8+ Specific Features
+
+```csharp
+if (gift is WC8 wc8)
+{
+    // Check gift type
+    switch (wc8.CardType)
+    {
+        case WC8.GiftType.Pokemon:
+            Console.WriteLine("Contains a Pokémon");
+            break;
+        case WC8.GiftType.Item:
+            Console.WriteLine("Contains items");
+            // Can have multiple items
+            for (int i = 0; i < 4; i++)
+            {
+                var itemId = wc8.GetItem(i);
+                if (itemId > 0)
+                {
+                    var qty = wc8.GetQuantity(i);
+                    Console.WriteLine($"  Item {i}: {itemId} x{qty}");
+                }
+            }
+            break;
+        case WC8.GiftType.BP:
+            Console.WriteLine("Contains Battle Points");
+            break;
+        case WC8.GiftType.Clothing:
+            Console.WriteLine("Contains clothing items");
+            break;
+    }
+    
+    // Check version restrictions
+    Console.WriteLine($"Can receive in Sword: {wc8.CanBeReceivedByVersion(GameVersion.SW)}");
+    Console.WriteLine($"Can receive in Shield: {wc8.CanBeReceivedByVersion(GameVersion.SH)}");
+    
+    // Check if repeatable
+    Console.WriteLine($"Repeatable: {wc8.GiftRepeatable}");
+}
+```
+
+## Converting to Pokémon
+
+Convert a Mystery Gift to a PKM object:
+
+```csharp
+// Create trainer info
+var trainer = new SimpleTrainerInfo
+{
+    OT = "Player",
+    TID16 = 12345,
+    SID16 = 54321,
+    Gender = 0,
+    Language = 2, // English
+    Generation = 8
+};
+
+// Convert gift to PKM
+var pk = gift.ConvertToPKM(trainer);
+
+if (pk is PK8 pk8)
+{
+    Console.WriteLine($"Created {pk8.Species} at level {pk8.CurrentLevel}");
+    Console.WriteLine($"Nature: {pk8.Nature}");
+    Console.WriteLine($"Ability: {pk8.Ability}");
+    
+    // The PKM is ready to be added to a save file
+}
+```
+
+## Compatibility Checking
+
+Verify if a gift is compatible with a save file:
+
+```csharp
+var sav = SaveUtil.GetVariantSAV(File.ReadAllBytes("save.bin"));
+
+if (gift.IsCardCompatible(sav, out string message))
+{
+    Console.WriteLine("Gift is compatible with this save file!");
+    
+    // Check if save can receive the specific values
+    if (sav.CanReceiveGift(gift))
+    {
+        Console.WriteLine("All gift values are valid for this game.");
+    }
+}
+else
+{
+    Console.WriteLine($"Incompatible: {message}");
+}
+```
+
+## Generation 4 Special Cases
+
+### PGT Files
+
+Gen 4 PGT files contain various gift types:
+
+```csharp
+if (gift is PGT pgt)
+{
+    switch (pgt.GiftType)
+    {
+        case GiftType4.Pokémon:
+            Console.WriteLine("Contains a Pokémon");
+            var pk4 = pgt.PK;
+            Console.WriteLine($"PID: {pk4.PID:X8}");
+            break;
+            
+        case GiftType4.PokémonEgg:
+        case GiftType4.ManaphyEgg:
+            Console.WriteLine("Contains an egg");
+            break;
+            
+        case GiftType4.Item:
+            Console.WriteLine($"Contains item: {pgt.ItemID}");
+            break;
+            
+        case GiftType4.Goods:
+            Console.WriteLine("Contains Underground goods");
+            break;
+            
+        case GiftType4.PokétchApp:
+            Console.WriteLine($"Pokétch App: {pgt.PoketchApp}");
+            break;
+            
+        case GiftType4.PokéwalkerCourse:
+            Console.WriteLine($"Pokéwalker Course: {pgt.PokewalkerCourseID}");
+            break;
+            
+        case GiftType4.HasSubType:
+            // Check subtype for seals, accessories, backdrops
+            switch (pgt.GiftSubType)
+            {
+                case GiftSubType4.Seal:
+                    Console.WriteLine($"Seal: {pgt.Seal}");
+                    break;
+                case GiftSubType4.Accessory:
+                    Console.WriteLine($"Accessory: {pgt.Accessory}");
+                    break;
+                case GiftSubType4.Backdrop:
+                    Console.WriteLine($"Backdrop: {pgt.Backdrop}");
+                    break;
+            }
+            break;
+    }
+}
+```
+
+## Getting Gift Descriptions
+
+```csharp
+using PKHeX.Core;
+
+// Get formatted title
+var title = gift.GetTitleFromIndex();
+Console.WriteLine($"Title: {title}");
+
+// Get full description
+var description = gift.GetDescription();
+foreach (var line in description)
+{
+    Console.WriteLine(line);
+}
+```
+
+## Best Practices
+
+<Note>
+  Always validate Mystery Gift compatibility before adding to a save file. Generation and game version mismatches can cause issues.
+</Note>
+
+<Warning>
+  Some gifts have version restrictions (e.g., Sword-only or Shield-only). Always check `RestrictVersion` for Gen 8+ gifts.
+</Warning>
+
+## Related Resources
+
+- [Save File Operations](/guides/basics/save-files)
+- [PKM Data Structures](/api/pkm-structure)
+- [Event Distribution Database](https://github.com/projectpokemon/EventsGallery)

@@ -1,0 +1,398 @@
+---
+title: GameStrings & String Data
+description: Access localized game strings including species, moves, items, abilities, and locations
+---
+
+## Overview
+
+The `GameStrings` class provides localized string data for all game elements including species names, moves, items, abilities, types, natures, locations, and more. The `GameInfo` class provides a singleton accessor for string data.
+
+## GameInfo
+
+The `GameInfo` class is the primary entry point for accessing game strings and related data sources.
+
+### Getting String Data
+
+```csharp
+using PKHeX.Core;
+
+// Access current language strings
+var strings = GameInfo.Strings;
+
+// Get strings for a specific language
+var japaneseStrings = GameInfo.GetStrings("ja");
+var englishStrings = GameInfo.GetStrings("en");
+var frenchStrings = GameInfo.GetStrings("fr");
+
+// Change current language
+GameInfo.CurrentLanguage = "en";
+```
+
+### Supported Languages
+
+- `"ja"` - Japanese
+- `"en"` - English
+- `"fr"` - French
+- `"de"` - German
+- `"it"` - Italian
+- `"es"` - Spanish
+- `"ko"` - Korean
+- `"zh"` - Chinese (Simplified)
+- `"zh2"` - Chinese (Traditional)
+
+## GameStrings
+
+The `GameStrings` class contains all localized string arrays for game data.
+
+### Core String Arrays
+
+```csharp
+var strings = GameInfo.Strings;
+
+// Pokémon data
+string[] species = strings.specieslist;      // Species names
+string[] forms = strings.forms;              // Form names
+string[] natures = strings.natures;          // Nature names
+string[] characteristics = strings.characteristics; // Characteristics
+
+// Moves & abilities
+string[] moves = strings.movelist;           // Move names
+string[] abilities = strings.abilitylist;    // Ability names
+string[] types = strings.types;              // Type names
+
+// Items
+string[] items = strings.itemlist;           // Item names
+string[] balls = strings.balllist;           // Poké Ball names
+
+// Get species name by ID
+string pikachuName = strings.Species[25];    // "Pikachu"
+
+// Get move name by ID
+string moveName = strings.Move[1];           // "Pound"
+
+// Get item name by ID
+string itemName = strings.Item[1];           // "Master Ball"
+```
+
+### Location Names
+
+```csharp
+var strings = GameInfo.Strings;
+
+// Generation-specific location sets
+var gen9Locations = strings.Gen9;   // Scarlet/Violet
+var gen8Locations = strings.Gen8;   // Sword/Shield
+var gen7Locations = strings.Gen7;   // Sun/Moon/USUM
+var gen6Locations = strings.Gen6;   // X/Y/ORAS
+var gen5Locations = strings.Gen5;   // Black/White/B2W2
+var gen4Locations = strings.Gen4;   // Diamond/Pearl/Platinum/HGSS
+var gen3Locations = strings.Gen3;   // Ruby/Sapphire/Emerald/FRLG
+var gen2Locations = strings.Gen2;   // Gold/Silver/Crystal
+
+// Spin-off games
+var cxdLocations = strings.CXD;     // Colosseum/XD
+var gen7bLocations = strings.Gen7b; // Let's Go
+var gen8aLocations = strings.Gen8a; // Legends Arceus
+var gen8bLocations = strings.Gen8b; // BDSP
+var gen9aLocations = strings.Gen9a; // Legends Z-A
+```
+
+### Getting Location Names
+
+```csharp
+// Get location name with parameters
+string location = GameInfo.GetLocationName(
+    isEggLocation: false,
+    location: 006,
+    format: 9,
+    generation: 9,
+    version: GameVersion.SV
+);
+
+// Alternative using strings directly
+string locationName = strings.GetLocationName(
+    false, 006, 9, 9, GameVersion.SV
+);
+
+// Get location list for UI
+var locations = GameInfo.GetLocationList(
+    GameVersion.SV,
+    EntityContext.Gen9,
+    egg: false
+);
+```
+
+### Memory & Feelings
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] memories = strings.memories;       // Memory descriptions
+string[] feeling6 = strings.feeling6;       // Gen 6 feelings
+string[] feeling8 = strings.feeling8;       // Gen 8 feelings
+string[] intensity = strings.intensity;     // Feeling intensity
+string[] genloc = strings.genloc;          // General locations
+```
+
+### Training & Super Training
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] trainingBags = strings.trainingbags;     // Training bags (Gen 6)
+string[] trainingStage = strings.trainingstage;   // Super Training stages
+```
+
+### Generation 4 Underground
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] uggoods = strings.uggoods;         // Underground goods
+string[] ugspheres = strings.ugspheres;     // Underground spheres
+string[] ugtraps = strings.ugtraps;         // Underground traps
+string[] ugtreasures = strings.ugtreasures; // Underground treasures
+```
+
+### Decorations & Customization
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] seals = strings.seals;             // Ball capsule seals
+string[] accessories = strings.accessories; // Accessories
+string[] backdrops = strings.backdrops;     // Photo backdrops
+string[] wallpapers = strings.wallpapernames; // PC wallpapers
+string[] poketchapps = strings.poketchapps; // Pokétch apps
+```
+
+### Generation-Specific Items
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] puffs = strings.puffs;             // Poké Puffs (Gen 6)
+string[] pokeblocks = strings.pokeblocks;   // Pokéblocks (Gen 3)
+```
+
+### Wonder Cards
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] wondercard7 = strings.wondercard7; // Gen 7 Mystery Gift types
+string[] wondercard8 = strings.wondercard8; // Gen 8 Mystery Gift types
+string[] wondercard9 = strings.wondercard9; // Gen 9 Mystery Gift types
+```
+
+### System & Metadata
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] games = strings.gamelist;          // Game version names
+string[] console3ds = strings.console3ds;   // 3DS region names
+string[] languages = strings.languageNames; // Language names
+string eggName = strings.EggName;           // "Egg" in current language
+LanguageID language = strings.Language;     // Current language ID
+```
+
+### Hidden Power Types
+
+```csharp
+var strings = GameInfo.Strings;
+
+// Get Hidden Power type names (excludes Normal)
+ReadOnlySpan<string> hpTypes = strings.HiddenPowerTypes;
+```
+
+### Ribbons
+
+```csharp
+var strings = GameInfo.Strings;
+
+string[] ribbonNames = strings.ribbons;
+var ribbonStrings = strings.Ribbons; // RibbonStrings object
+```
+
+## GameDataSource
+
+Provides formatted combo item lists for UI data binding.
+
+```csharp
+var sources = GameInfo.Sources;
+
+// Get data sources
+var species = sources.SpeciesDataSource;    // Species combo items
+var balls = sources.BallDataSource;         // Ball combo items
+var natures = sources.NatureDataSource;     // Nature combo items
+var abilities = sources.AbilityDataSource;  // Ability combo items
+var versions = sources.VersionDataSource;   // Game version combo items
+var moves = sources.LegalMoveDataSource;    // Legal moves only
+var allMoves = sources.HaXMoveDataSource;   // All moves including unreleased
+
+// Get item data source for specific game
+var items = sources.GetItemDataSource(
+    GameVersion.SV,
+    EntityContext.Gen9,
+    ItemStorage9SV.GetAllHeld()
+);
+```
+
+### Language Data Sources
+
+```csharp
+// Get language list for generation
+var languages = GameInfo.LanguageDataSource(9, EntityContext.Gen9);
+```
+
+### Met Location Sources
+
+```csharp
+var metSources = sources.Met;
+
+// Get location list for version
+var locations = metSources.GetLocationList(
+    GameVersion.SV,
+    EntityContext.Gen9,
+    egg: false
+);
+```
+
+## Context-Specific Item Strings
+
+Item names vary between game contexts (TM numbers, duplicate items, etc.).
+
+```csharp
+var strings = GameInfo.Strings;
+
+// Get items for specific context
+string[] gen1Items = strings.GetItemStrings(EntityContext.Gen1);
+string[] gen2Items = strings.GetItemStrings(EntityContext.Gen2);
+string[] gen3Items = strings.GetItemStrings(EntityContext.Gen3, GameVersion.E);
+string[] gen4Items = strings.GetItemStrings(EntityContext.Gen4);
+string[] gen8bItems = strings.GetItemStrings(EntityContext.Gen8b);
+string[] gen9Items = strings.GetItemStrings(EntityContext.Gen9);
+string[] gen9aItems = strings.GetItemStrings(EntityContext.Gen9a);
+```
+
+## Version Name Lookup
+
+```csharp
+// Get localized version name
+string versionName = GameInfo.GetVersionName(GameVersion.SV);
+```
+
+## Common Use Cases
+
+### Display Species Name
+
+```csharp
+public string GetSpeciesName(ushort species)
+{
+    return GameInfo.Strings.Species[species];
+}
+```
+
+### Display Move with Type
+
+```csharp
+public string GetMoveDescription(ushort moveID, byte typeID)
+{
+    var strings = GameInfo.Strings;
+    return $"{strings.Move[moveID]} ({strings.Types[typeID]})";
+}
+```
+
+### Create Location Dropdown
+
+```csharp
+public IReadOnlyList<ComboItem> GetLocationDropdown(
+    GameVersion version, EntityContext context)
+{
+    return GameInfo.GetLocationList(version, context, egg: false);
+}
+```
+
+### Localized Ability Display
+
+```csharp
+public string GetAbilityName(int abilityID)
+{
+    if (abilityID == 0)
+        return GameInfo.Strings.Item[0]; // "(None)"
+    return GameInfo.Strings.Ability[abilityID];
+}
+```
+
+### Format Nature Name
+
+```csharp
+public string GetNatureName(int nature)
+{
+    return GameInfo.Strings.Natures[nature];
+}
+```
+
+### Multi-Language Support
+
+```csharp
+public Dictionary<string, string> GetSpeciesNamesAllLanguages(ushort species)
+{
+    var names = new Dictionary<string, string>();
+    
+    var languages = new[] { "en", "ja", "fr", "de", "it", "es", "ko" };
+    foreach (var lang in languages)
+    {
+        var strings = GameInfo.GetStrings(lang);
+        names[lang] = strings.Species[species];
+    }
+    
+    return names;
+}
+```
+
+## IBasicStrings Interface
+
+The minimal interface for string data access:
+
+```csharp
+public interface IBasicStrings
+{
+    IReadOnlyList<string> Species { get; }
+    IReadOnlyList<string> Item { get; }
+    IReadOnlyList<string> Move { get; }
+    IReadOnlyList<string> Ability { get; }
+    IReadOnlyList<string> Types { get; }
+    IReadOnlyList<string> Natures { get; }
+}
+```
+
+## Gender Symbols
+
+```csharp
+// Unicode symbols
+var genderSymbols = GameInfo.GenderSymbolUnicode;
+string male = genderSymbols[0];   // "♂"
+string female = genderSymbols[1]; // "♀"
+string genderless = genderSymbols[2]; // "-"
+
+// ASCII symbols
+var asciiSymbols = GameInfo.GenderSymbolASCII;
+string maleAscii = asciiSymbols[0];   // "M"
+string femaleAscii = asciiSymbols[1]; // "F"
+```
+
+## Related Types
+
+- `IBasicStrings` - Basic string data interface
+- `LanguageID` - Language identifier enumeration
+- `GameVersion` - Game version enumeration
+- `EntityContext` - Generation/game context
+- `ComboItem` - UI combo box item
+- `MetDataSource` - Met location data source
+
+## See Also
+
+- [PersonalInfo](/api/utilities/personal-info) - Species stat data
+- [Items & Moves](/api/utilities/items-moves) - Item and move utilities

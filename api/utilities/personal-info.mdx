@@ -1,0 +1,313 @@
+---
+title: PersonalInfo & PersonalTable
+description: Access species base stats, type data, abilities, and form information
+---
+
+## Overview
+
+The `PersonalInfo` and `PersonalTable` classes provide access to species-specific data including base stats, types, abilities, egg groups, gender ratios, and form information. This is the primary way to access Pokémon species metadata across all generations.
+
+## PersonalTable
+
+The `PersonalTable` class provides static instances for each game generation, containing all species data for that generation.
+
+### Available Tables
+
+```csharp
+using PKHeX.Core;
+
+// Generation 9
+var sv = PersonalTable.SV;    // Scarlet/Violet
+var za = PersonalTable.ZA;    // Legends Z-A
+
+// Generation 8
+var swsh = PersonalTable.SWSH;  // Sword/Shield
+var bdsp = PersonalTable.BDSP;  // Brilliant Diamond/Shining Pearl
+var la = PersonalTable.LA;      // Legends Arceus
+
+// Generation 7
+var usum = PersonalTable.USUM;  // Ultra Sun/Ultra Moon
+var sm = PersonalTable.SM;      // Sun/Moon
+var gg = PersonalTable.GG;      // Let's Go Pikachu/Eevee
+
+// Generation 6
+var xy = PersonalTable.XY;      // X/Y
+var ao = PersonalTable.AO;      // Omega Ruby/Alpha Sapphire
+
+// Generation 5
+var bw = PersonalTable.BW;      // Black/White
+var b2w2 = PersonalTable.B2W2;  // Black 2/White 2
+
+// Generation 4
+var dp = PersonalTable.DP;      // Diamond/Pearl
+var pt = PersonalTable.Pt;      // Platinum
+var hgss = PersonalTable.HGSS;  // HeartGold/SoulSilver
+
+// Generation 3
+var rs = PersonalTable.RS;      // Ruby/Sapphire
+var e = PersonalTable.E;        // Emerald
+var fr = PersonalTable.FR;      // FireRed
+var lg = PersonalTable.LG;      // LeafGreen
+
+// Generation 2
+var gs = PersonalTable.GS;      // Gold/Silver
+var c = PersonalTable.C;        // Crystal
+
+// Generation 1
+var rb = PersonalTable.RB;      // Red/Blue
+var y = PersonalTable.Y;        // Yellow
+```
+
+### Accessing Species Data
+
+```csharp
+// Get info for a species
+var charizard = PersonalTable.SV[6]; // Charizard (species ID 6)
+
+// Get info for a specific form
+var gigantamaxCharizard = PersonalTable.SV[6, 1]; // Charizard Gigantamax form
+
+// Access base stats
+int hp = charizard.HP;
+int atk = charizard.ATK;
+int def = charizard.DEF;
+int spa = charizard.SPA;
+int spd = charizard.SPD;
+int spe = charizard.SPE;
+```
+
+### Checking Game Availability
+
+```csharp
+// Check if species is in the game
+bool inGame = PersonalTable.SV.IsSpeciesInGame(25); // Pikachu
+
+// Check if specific form is available
+bool hasForm = PersonalTable.SV.IsPresentInGame(25, 1); // Pikachu Partner form
+```
+
+## PersonalInfo
+
+The `PersonalInfo` class represents data for a single species or form.
+
+### Base Stats
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+// Base stats
+int hp = info.HP;        // 35
+int atk = info.ATK;      // 55
+int def = info.DEF;      // 40
+int spa = info.SPA;      // 50
+int spd = info.SPD;      // 50
+int spe = info.SPE;      // 90
+
+// EV yields
+int evSpe = info.EV_SPE; // 2 Speed EVs
+```
+
+### Type Information
+
+```csharp
+var info = PersonalTable.SV[6]; // Charizard
+
+byte type1 = info.Type1; // Fire
+byte type2 = info.Type2; // Flying
+```
+
+### Abilities
+
+```csharp
+var info = PersonalTable.SV[6]; // Charizard
+
+// Get ability count
+int abilityCount = info.AbilityCount; // 3 (Blaze, Solar Power, + HA)
+
+// Get ability at specific index
+int ability1 = info.GetAbilityAtIndex(0); // Blaze
+int ability2 = info.GetAbilityAtIndex(1); // Solar Power (HA)
+
+// Get index of a specific ability
+int index = info.GetIndexOfAbility(66); // Solar Power
+```
+
+### Gender Ratios
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+byte genderRatio = info.Gender;
+
+// Gender checks
+bool isDualGender = info.IsDualGender;   // true
+bool isGenderless = info.Genderless;     // false
+bool onlyMale = info.OnlyMale;           // false
+bool onlyFemale = info.OnlyFemale;       // false
+
+// Gender ratio constants
+const byte genderless = PersonalInfo.RatioMagicGenderless; // 255
+const byte femaleOnly = PersonalInfo.RatioMagicFemale;     // 254
+const byte maleOnly = PersonalInfo.RatioMagicMale;         // 0
+
+// Check if a gender ratio is single-gender
+bool isSingleGender = PersonalInfo.IsSingleGender(genderRatio);
+
+// Get min/max PID values for gender
+var (min, max) = PersonalInfo.GetGenderMinMax(1, genderRatio); // Female
+```
+
+### Egg Groups
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+int eggGroup1 = info.EggGroup1; // Field
+int eggGroup2 = info.EggGroup2; // Fairy
+```
+
+### Breeding Information
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+byte hatchCycles = info.HatchCycles;       // Number of cycles to hatch
+byte baseFriendship = info.BaseFriendship; // Starting friendship value
+```
+
+### Experience & Growth
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+byte expGrowth = info.EXPGrowth;  // Growth rate type
+int baseExp = info.BaseEXP;       // Base experience yield
+int evoStage = info.EvoStage;     // Evolution stage
+```
+
+### Catch & Escape Rates
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+byte catchRate = info.CatchRate;  // 190
+int escapeRate = info.EscapeRate; // Safari Zone escape rate
+```
+
+### Form Information
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+// Form data
+byte formCount = info.FormCount;         // Number of forms
+int formStatsIndex = info.FormStatsIndex; // Index of first form
+bool hasForms = info.HasForms;           // true if FormCount > 1
+
+// Check if form is valid
+bool isValid = info.IsFormWithinRange(1); // Check form 1
+
+// Check if species has a specific form
+bool hasForm = info.HasForm(1); // Check for form 1
+
+// Get form index
+ushort species = 25;
+byte form = 1;
+int index = info.FormIndex(species, form);
+```
+
+### Physical Attributes
+
+```csharp
+var info = PersonalTable.SV[25]; // Pikachu
+
+int height = info.Height; // Height in decimeters
+int weight = info.Weight; // Weight in hectograms
+int color = info.Color;   // Pokédex color category
+```
+
+## Common Use Cases
+
+### Validating Species/Form Combinations
+
+```csharp
+public bool IsValidForm(ushort species, byte form, GameVersion version)
+{
+    var table = version switch
+    {
+        GameVersion.SV or GameVersion.VL => PersonalTable.SV,
+        GameVersion.SW or GameVersion.SH => PersonalTable.SWSH,
+        _ => PersonalTable.USUM
+    };
+    
+    return table.IsPresentInGame(species, form);
+}
+```
+
+### Calculating Stat Totals
+
+```csharp
+public int GetBaseStatTotal(ushort species)
+{
+    var info = PersonalTable.SV[species];
+    return info.HP + info.ATK + info.DEF + 
+           info.SPA + info.SPD + info.SPE;
+}
+```
+
+### Checking Type Matchups
+
+```csharp
+public (byte, byte) GetTypes(ushort species, byte form = 0)
+{
+    var info = PersonalTable.SV[species, form];
+    return (info.Type1, info.Type2);
+}
+```
+
+### Retrieving All Abilities
+
+```csharp
+public List<int> GetAllAbilities(ushort species)
+{
+    var info = PersonalTable.SV[species];
+    var abilities = new List<int>();
+    
+    for (int i = 0; i < info.AbilityCount; i++)
+    {
+        abilities.Add(info.GetAbilityAtIndex(i));
+    }
+    
+    return abilities;
+}
+```
+
+### Checking Breeding Compatibility
+
+```csharp
+public bool CanBreed(ushort species1, ushort species2)
+{
+    var info1 = PersonalTable.SV[species1];
+    var info2 = PersonalTable.SV[species2];
+    
+    // Check if either shares an egg group
+    return info1.EggGroup1 == info2.EggGroup1 ||
+           info1.EggGroup1 == info2.EggGroup2 ||
+           info1.EggGroup2 == info2.EggGroup1 ||
+           info1.EggGroup2 == info2.EggGroup2;
+}
+```
+
+## Related Types
+
+- `IPersonalInfo` - Interface for PersonalInfo implementations
+- `IPersonalTable` - Interface for PersonalTable implementations
+- `IPersonalInfoTM` - Technical Machine learn compatibility
+- `IPersonalInfoTR` - Technical Record learn compatibility
+- `Species` - Species ID enumeration
+- `EntityContext` - Game generation context
+
+## See Also
+
+- [Game Strings](/api/utilities/game-strings) - Localized string data
+- [Items & Moves](/api/utilities/items-moves) - Item and move utilities

@@ -1,0 +1,350 @@
+---
+title: "Loading Save Files"
+description: "Learn how to detect and load Pokémon save files using PKHeX.Core"
+---
+
+## Overview
+
+PKHeX.Core provides powerful utilities for detecting and loading save files from all Pokémon generations (Gen 1-9). The library automatically detects save file types, handles encryption, and supports various formats including emulator saves and special handlers.
+
+## Basic Save Loading
+
+### Loading from File Path
+
+The simplest way to load a save file is using `SaveUtil.GetSaveFile()`:
+
+```csharp
+using PKHeX.Core;
+
+// Load a save file from disk
+string path = "path/to/save.sav";
+SaveFile? sav = SaveUtil.GetSaveFile(path);
+
+if (sav != null)
+{
+    Console.WriteLine($"Loaded {sav.Version} save file");
+    Console.WriteLine($"Trainer: {sav.OT}");
+    Console.WriteLine($"Play Time: {sav.PlayTimeString}");
+}
+else
+{
+    Console.WriteLine("Failed to load save file");
+}
+```
+
+### Loading from Byte Array
+
+You can also load save data from a byte array or `Memory<byte>`:
+
+```csharp
+// Read save data into memory
+byte[] data = File.ReadAllBytes("path/to/save.sav");
+Memory<byte> memory = new Memory<byte>(data);
+
+// Load the save file
+SaveFile? sav = SaveUtil.GetSaveFile(memory);
+
+if (sav != null)
+{
+    Console.WriteLine($"Loaded Generation {sav.Generation} save");
+}
+```
+
+## Safe Loading with TryGetSaveFile
+
+For more robust error handling, use `TryGetSaveFile()`:
+
+```csharp
+string path = "path/to/save.sav";
+
+if (SaveUtil.TryGetSaveFile(path, out SaveFile? sav))
+{
+    // Successfully loaded
+    Console.WriteLine($"Game: {sav.Version}");
+    Console.WriteLine($"OT: {sav.OT}");
+    Console.WriteLine($"TID: {sav.TID16}");
+    Console.WriteLine($"SID: {sav.SID16}");
+}
+else
+{
+    Console.WriteLine("Invalid or corrupted save file");
+}
+```
+
+## Automatic Format Detection
+
+PKHeX automatically detects save file formats based on size and content validation:
+
+```csharp
+// The library detects the format automatically
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+switch (sav)
+{
+    case SAV1 gen1:
+        Console.WriteLine($"Gen 1 save: {(gen1.Japanese ? "Japanese" : "International")}");
+        break;
+    case SAV2 gen2:
+        Console.WriteLine($"Gen 2 save: {gen2.Version}");
+        break;
+    case SAV3 gen3:
+        Console.WriteLine($"Gen 3 save: {gen3.Version}");
+        break;
+    case SAV4 gen4:
+        Console.WriteLine($"Gen 4 save: {gen4.Version}");
+        break;
+    case SAV5 gen5:
+        Console.WriteLine($"Gen 5 save: {gen5.Version}");
+        break;
+    case SAV6 gen6:
+        Console.WriteLine($"Gen 6 save: {gen6.Version}");
+        break;
+    case SAV7 gen7:
+        Console.WriteLine($"Gen 7 save: {gen7.Version}");
+        break;
+    case SAV7b gen7b:
+        Console.WriteLine("Let's Go Pikachu/Eevee save");
+        break;
+    case SAV8SWSH gen8:
+        Console.WriteLine($"Sword/Shield save (Revision: {gen8.SaveRevisionString})");
+        break;
+    case SAV8BS gen8bdsp:
+        Console.WriteLine("Brilliant Diamond/Shining Pearl save");
+        break;
+    case SAV8LA gen8la:
+        Console.WriteLine("Legends Arceus save");
+        break;
+    case SAV9SV gen9:
+        Console.WriteLine($"Scarlet/Violet save (Revision: {gen9.SaveRevisionString})");
+        break;
+    default:
+        Console.WriteLine("Unknown save format");
+        break;
+}
+```
+
+## Validating Save File Size
+
+Before attempting to load a file, you can check if the size is valid:
+
+```csharp
+string path = "save.sav";
+long fileSize = new FileInfo(path).Length;
+
+if (SaveUtil.IsSizeValid(fileSize))
+{
+    var sav = SaveUtil.GetSaveFile(path);
+    // Process save file
+}
+else
+{
+    Console.WriteLine("Invalid save file size");
+}
+```
+
+## Loading Specific Save Formats
+
+### Gen 8+ Encrypted Saves (Switch)
+
+Gen 8 and Gen 9 saves use encryption and are automatically decrypted:
+
+```csharp
+// Sword/Shield, BDSP, Legends Arceus, Scarlet/Violet
+byte[] encryptedData = File.ReadAllBytes("main");
+var sav = SaveUtil.GetSaveFile(encryptedData);
+
+if (sav is SAV8SWSH swsh)
+{
+    Console.WriteLine($"Trainer: {swsh.OT}");
+    Console.WriteLine($"Pokédex: {swsh.Zukan}");
+}
+```
+
+### Gen 3 GameCube Saves
+
+For Colosseum and XD saves stored in GameCube Memory Cards:
+
+```csharp
+byte[] memoryCardData = File.ReadAllBytes("Card.raw");
+var memCard = new SAV3GCMemoryCard(memoryCardData);
+
+if (SaveUtil.TryGetSaveFile(memCard, out SaveFile? gcSave))
+{
+    if (gcSave is SAV3Colosseum colo)
+    {
+        Console.WriteLine("Colosseum save loaded");
+    }
+    else if (gcSave is SAV3XD xd)
+    {
+        Console.WriteLine("XD: Gale of Darkness save loaded");
+    }
+}
+```
+
+## Handling Special Formats
+
+### Emulator Saves with Footers
+
+PKHeX automatically handles various emulator formats:
+
+```csharp
+// Handles DeSmuME, Action Replay, and other formats
+var sav = SaveUtil.GetSaveFile("save.dsv");
+
+// Check if special handlers were used
+if (sav?.Metadata.Handler != null)
+{
+    Console.WriteLine($"Loaded with handler: {sav.Metadata.Handler.GetType().Name}");
+}
+```
+
+### ZIP Archives
+
+PKHeX can extract and load saves from ZIP files:
+
+```csharp
+// Automatically extracts and loads from ZIP
+var sav = SaveUtil.GetSaveFile("backup.zip");
+```
+
+## Batch Loading from Folders
+
+Load all valid save files from a directory:
+
+```csharp
+using System.Threading;
+
+string folderPath = "saves/";
+bool searchSubdirectories = true;
+var token = CancellationToken.None;
+
+if (SaveUtil.GetSavesFromFolder(folderPath, searchSubdirectories, token, 
+    out IEnumerable<string> savePaths))
+{
+    foreach (string path in savePaths)
+    {
+        if (SaveUtil.TryGetSaveFile(path, out SaveFile? sav))
+        {
+            Console.WriteLine($"Found: {sav.OT} - {sav.Version}");
+        }
+    }
+}
+```
+
+## Checking Save File Validity
+
+### Checksum Validation
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    if (sav.ChecksumsValid)
+    {
+        Console.WriteLine("Save file checksums are valid");
+    }
+    else
+    {
+        Console.WriteLine("Warning: Invalid checksums detected");
+        Console.WriteLine(sav.ChecksumInfo);
+    }
+}
+```
+
+### Version Validation
+
+```csharp
+if (sav != null && sav.IsVersionValid())
+{
+    Console.WriteLine($"Valid {sav.Version} save file");
+}
+```
+
+## Common Save File Properties
+
+Once loaded, access common properties across all generations:
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    // Trainer information
+    Console.WriteLine($"Trainer Name: {sav.OT}");
+    Console.WriteLine($"Trainer ID: {sav.TID16}");
+    Console.WriteLine($"Secret ID: {sav.SID16}");
+    Console.WriteLine($"Full ID32: {sav.ID32:X8}");
+    
+    // Game information
+    Console.WriteLine($"Game: {sav.Version}");
+    Console.WriteLine($"Generation: {sav.Generation}");
+    Console.WriteLine($"Language: {sav.Language}");
+    
+    // Progress
+    Console.WriteLine($"Play Time: {sav.PlayTimeString}");
+    Console.WriteLine($"Money: {sav.Money}");
+    
+    // Storage
+    Console.WriteLine($"Box Count: {sav.BoxCount}");
+    Console.WriteLine($"Party Count: {sav.PartyCount}");
+}
+```
+
+## Error Handling Best Practices
+
+```csharp
+public static SaveFile? LoadSaveFileSafe(string path)
+{
+    try
+    {
+        if (!File.Exists(path))
+        {
+            Console.WriteLine("File not found");
+            return null;
+        }
+        
+        var fileInfo = new FileInfo(path);
+        if (!SaveUtil.IsSizeValid(fileInfo.Length))
+        {
+            Console.WriteLine("Invalid save file size");
+            return null;
+        }
+        
+        if (!SaveUtil.TryGetSaveFile(path, out SaveFile? sav))
+        {
+            Console.WriteLine("Failed to parse save file");
+            return null;
+        }
+        
+        if (!sav.ChecksumsValid)
+        {
+            Console.WriteLine("Warning: Checksum validation failed");
+            // Decide whether to proceed or reject
+        }
+        
+        return sav;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error loading save: {ex.Message}");
+        return null;
+    }
+}
+```
+
+<Note>
+Always validate checksums before modifying save data. Invalid checksums may indicate corruption or an incompatible format.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Save Structure" icon="sitemap" href="/guides/save-files/save-structure">
+    Learn about save file structure and how data is organized
+  </Card>
+  
+  <Card title="Modifying Data" icon="pen-to-square" href="/guides/save-files/modifying-data">
+    Modify Pokémon, items, and trainer information
+  </Card>
+</CardGroup>

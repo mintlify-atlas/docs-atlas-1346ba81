@@ -1,0 +1,271 @@
+---
+title: PK1 and PK2 Classes
+description: Generation 1 and 2 PKM format documentation
+---
+
+# PK1 and PK2 Classes
+
+PK1 and PK2 represent the earliest Pokémon data formats from Generation 1 (Red/Blue/Yellow) and Generation 2 (Gold/Silver/Crystal).
+
+## PK1 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK1.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 33 bytes |
+| SIZE_PARTY | 44 bytes |
+| Generation | 1 |
+| Context | EntityContext.Gen1 |
+| Games | Red, Blue, Yellow |
+
+### Key Features
+
+#### Special Stat System
+
+- Uses **Special** stat (no split between Sp. Atk and Sp. Def)
+- Both `Stat_SPA` and `Stat_SPD` return the same `Stat_SPC` value
+- DVs (Determinant Values) instead of IVs, stored as 4 bits each
+
+#### Catch Rate System
+
+Gen 1 Pokémon store catch rate data instead of held items:
+
+```csharp
+public byte CatchRate { get; set; }
+public byte Gen2Item => ItemConverter.GetItemFuture1(CatchRate);
+```
+
+The catch rate can represent:
+- The actual catch rate of the species
+- A held item when transferred to Gen 2
+
+#### Data Encoding
+
+- Big-endian byte order
+- No encryption
+- Species stored as internal Gen 1 index (not National Dex)
+
+### Important Properties
+
+#### Species Management
+
+```csharp
+public byte SpeciesInternal { get; set; }  // Raw Gen 1 index
+public override ushort Species { get; set; } // National Dex number
+```
+
+#### Stats (Stored Format - 33 bytes)
+
+- `0x00`: Species (internal)
+- `0x01-0x02`: Current HP
+- `0x03`: Level (box)
+- `0x04`: Status Condition
+- `0x05-0x06`: Type 1 & Type 2
+- `0x07`: Catch Rate
+- `0x08-0x0B`: Moves 1-4
+- `0x0C-0x0D`: TID
+- `0x0E-0x10`: EXP (24-bit)
+- `0x11-0x1A`: EVs (HP, ATK, DEF, SPE, SPC)
+- `0x1B-0x1C`: DVs (IVs)
+- `0x1D-0x20`: PP for moves 1-4
+
+#### Party Stats (+11 bytes)
+
+- `0x21`: Level
+- `0x22-0x2B`: Max HP, Attack, Defense, Speed, Special (party stats)
+
+### Conversion Methods
+
+#### Convert to PK2
+
+```csharp
+public PK2 ConvertToPK2()
+```
+
+Transfers data to Generation 2 format:
+- Converts catch rate to held item
+- Preserves DVs, moves, and experience
+
+#### Convert to PK7 (Virtual Console)
+
+```csharp
+public PK7 ConvertToPK7()
+```
+
+Transfers through Virtual Console (3DS):
+- Generates random IVs with minimum 3 perfect (5 for Mew)
+- Hidden Ability based on transfer rules
+- Sets transfer location and memories
+
+---
+
+## PK2 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK2.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 32 bytes |
+| SIZE_PARTY | 48 bytes |
+| Generation | 2 |
+| Context | EntityContext.Gen2 |
+| Games | Gold, Silver, Crystal |
+
+### Key Features
+
+#### New Gen 2 Features
+
+- **Held Items**: First generation with held items
+- **Gender**: Determined from DVs
+- **Shininess**: Based on DV values
+- **Friendship**: Introduced happiness/friendship system
+- **Time of Day**: Crystal adds time-of-day encounter data
+
+#### Crystal-Exclusive Data
+
+Crystal version introduced met location tracking:
+
+```csharp
+public ushort CaughtData { get; set; }
+public int MetTimeOfDay { get; set; }     // 0=Morning, 1=Day, 2=Night
+public byte MetLevel { get; set; }
+public byte OriginalTrainerGender { get; set; }
+public ushort MetLocation { get; set; }
+```
+
+### Important Properties
+
+#### Data Structure (Stored - 32 bytes)
+
+- `0x00`: Species
+- `0x01`: Held Item
+- `0x02-0x05`: Moves 1-4
+- `0x06-0x07`: TID
+- `0x08-0x0A`: EXP (24-bit)
+- `0x0B-0x14`: EVs (HP, ATK, DEF, SPE, SPC)
+- `0x15-0x16`: DVs
+- `0x17-0x1A`: PP for moves 1-4
+- `0x1B`: Friendship
+- `0x1C`: Pokérus state
+- `0x1D-0x1E`: Caught data (Crystal)
+- `0x1F`: Level
+
+#### Party Stats (+16 bytes)
+
+- `0x20`: Status Condition
+- `0x22-0x2F`: Current HP, Max HP, ATK, DEF, SPE, SPA, SPD
+
+#### Pokérus System
+
+```csharp
+public byte PokerusState { get; set; }
+public int PokerusDays { get; set; }    // 0-15 days remaining
+public int PokerusStrain { get; set; }  // 0-15 strain type
+```
+
+### Korean Version Support
+
+PK2 includes support for Korean Gold/Silver:
+
+```csharp
+public override bool Korean => !Japanese && OriginalTrainerTrash[0] <= 0xB;
+```
+
+Korean versions use a different string encoding.
+
+### Conversion Methods
+
+#### Convert to PK1
+
+```csharp
+public PK1 ConvertToPK1()
+```
+
+Downgrades to Gen 1 format:
+- Converts held item back to catch rate
+- Removes Gen 2-specific data
+
+#### Convert to PK7 (Virtual Console)
+
+```csharp
+public PK7 ConvertToPK7()
+```
+
+Transfers through Virtual Console:
+- Preserves gender and OT from Crystal data
+- Special handling for Celebi and other event Pokémon
+- Minimum 3 perfect IVs (5 for Mew/Celebi)
+
+#### Convert to SK2 (Stadium 2)
+
+```csharp
+public SK2 ConvertToSK2()
+```
+
+Converts to Stadium 2 format for N64 compatibility.
+
+### String Encoding
+
+Gen 1-2 use custom character encodings:
+
+- Japanese: 5-character names
+- International: 7-character trainer names, 10-character nicknames
+- Korean: Unique encoding for Korean GS
+
+## Limitations
+
+### Gen 1 Limitations
+
+- Maximum 151 species
+- No abilities, natures, or held items
+- No gender or shininess (determined on transfer)
+- 8-bit stats (max 255)
+- Big-endian encoding
+
+### Gen 2 Limitations
+
+- Maximum 251 species
+- No abilities or natures
+- DV-based gender and shininess
+- Limited met location data (Crystal only)
+- No encryption
+
+## Code Examples
+
+### Creating a Gen 1 Pokémon
+
+```csharp
+var pk1 = new PK1
+{
+    Species = 25, // Pikachu
+    CurrentLevel = 5,
+    Nickname = "PIKACHU",
+    OriginalTrainerName = "ASH",
+    TID16 = 12345
+};
+pk1.SetStats(pk1.GetStats(pk1.PersonalInfo));
+pk1.HealPP();
+```
+
+### Converting Gen 2 to Gen 7
+
+```csharp
+var pk2 = new PK2(data); // Load Gen 2 data
+var pk7 = pk2.ConvertToPK7();
+// PK7 now has modern format with memories, IVs, etc.
+```
+
+## See Also
+
+- [Format Overview](/api/formats/overview)
+- [PK3, PK4, PK5 Classes](/api/formats/pk3-pk4-pk5)
+- String converters for Gen 1-2 text encoding

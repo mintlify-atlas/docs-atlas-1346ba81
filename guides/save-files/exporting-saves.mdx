@@ -1,0 +1,645 @@
+---
+title: "Exporting and Writing Save Files"
+description: "Learn how to export modified save files and write them back to disk"
+---
+
+## Overview
+
+After modifying save data, you need to properly export and write the save file back to disk. PKHeX.Core handles encryption, checksums, and format-specific requirements automatically.
+
+## Basic Save Export
+
+### Writing to File
+
+The simplest way to export a save file:
+
+```csharp
+using PKHeX.Core;
+
+// Load and modify save
+var sav = SaveUtil.GetSaveFile("original.sav");
+if (sav == null) return;
+
+sav.OT = "MODIFIED";
+sav.Money = 999999;
+
+// Export save data
+var data = sav.Write();
+
+// Write to disk
+File.WriteAllBytes("modified.sav", data.ToArray());
+
+Console.WriteLine("Save file exported successfully!");
+```
+
+### Using BinaryExportSetting
+
+Control how the save is exported with `BinaryExportSetting`:
+
+```csharp
+using PKHeX.Core;
+
+// Export with default settings (includes everything)
+var dataDefault = sav.Write(BinaryExportSetting.None);
+
+// Export without footer (if present)
+var dataNoFooter = sav.Write(BinaryExportSetting.ExcludeFooter);
+
+// Export without header (if present)
+var dataNoHeader = sav.Write(BinaryExportSetting.ExcludeHeader);
+
+// Export without finalization
+var dataNoFinalize = sav.Write(BinaryExportSetting.ExcludeFinalize);
+
+// Combine flags
+var dataCustom = sav.Write(
+    BinaryExportSetting.ExcludeHeader | BinaryExportSetting.ExcludeFooter
+);
+
+// Write to file
+File.WriteAllBytes("save.sav", dataDefault.ToArray());
+```
+
+## Export Settings Explained
+
+### BinaryExportSetting.None
+
+Exports complete save file with all sections:
+
+```csharp
+// Default export - includes everything
+var data = sav.Write(BinaryExportSetting.None);
+
+// This is equivalent to:
+var data = sav.Write();
+
+// Use for:
+// - Normal save file export
+// - When you want the complete file
+```
+
+### BinaryExportSetting.ExcludeFooter
+
+Removes footer data (Gen 3-7 emulator formats):
+
+```csharp
+// Export without footer
+var data = sav.Write(BinaryExportSetting.ExcludeFooter);
+
+// Use for:
+// - Converting emulator saves to clean format
+// - Removing RTC data from Gen 3 saves
+```
+
+### BinaryExportSetting.ExcludeHeader
+
+Removes header data (if present):
+
+```csharp
+// Export without header
+var data = sav.Write(BinaryExportSetting.ExcludeHeader);
+
+// Use for:
+// - Removing special headers from modified saves
+// - Converting between formats
+```
+
+### BinaryExportSetting.ExcludeFinalize
+
+Skips finalization steps:
+
+```csharp
+// Export without finalization
+var data = sav.Write(BinaryExportSetting.ExcludeFinalize);
+
+// Use for:
+// - Debugging
+// - When you want to manually handle finalization
+```
+
+## Generation-Specific Export
+
+### Gen 1-2 (GB/GBC)
+
+```csharp
+var sav1 = SaveUtil.GetSaveFile("red.sav") as SAV1;
+if (sav1 != null)
+{
+    // Modify data
+    sav1.OT = "ASH";
+    sav1.Money = 999999;
+    
+    // Export (checksums updated automatically)
+    var data = sav1.Write();
+    File.WriteAllBytes("red_modified.sav", data.ToArray());
+    
+    Console.WriteLine("Gen 1 save exported");
+}
+```
+
+### Gen 3 (GBA)
+
+```csharp
+var sav3 = SaveUtil.GetSaveFile("emerald.sav") as SAV3E;
+if (sav3 != null)
+{
+    // Modify data
+    sav3.OT = "TRAINER";
+    
+    // Export with checksums and section validation
+    var data = sav3.Write();
+    File.WriteAllBytes("emerald_modified.sav", data.ToArray());
+    
+    Console.WriteLine("Gen 3 save exported");
+}
+```
+
+### Gen 4-5 (NDS)
+
+```csharp
+var sav4 = SaveUtil.GetSaveFile("platinum.sav") as SAV4Pt;
+if (sav4 != null)
+{
+    // Modify data
+    sav4.OT = "TRAINER";
+    
+    // Export with footer and checksums
+    var data = sav4.Write();
+    File.WriteAllBytes("platinum_modified.sav", data.ToArray());
+    
+    Console.WriteLine("Gen 4 save exported");
+}
+```
+
+### Gen 6-7 (3DS)
+
+```csharp
+var sav6 = SaveUtil.GetSaveFile("omega_ruby.sav") as SAV6AO;
+if (sav6 != null)
+{
+    // Modify data
+    sav6.OT = "TRAINER";
+    
+    // Export with BEEF footer
+    var data = sav6.Write();
+    File.WriteAllBytes("omega_ruby_modified.sav", data.ToArray());
+    
+    Console.WriteLine("Gen 6 save exported");
+}
+```
+
+### Gen 8-9 (Switch)
+
+```csharp
+var sav8 = SaveUtil.GetSaveFile("main") as SAV8SWSH;
+if (sav8 != null)
+{
+    // Modify data
+    sav8.MyStatus.OT = "TRAINER";
+    
+    // Export (automatically encrypted)
+    var data = sav8.Write();
+    File.WriteAllBytes("main", data.ToArray());
+    
+    Console.WriteLine("Gen 8 save exported (encrypted)");
+}
+
+var sav9 = SaveUtil.GetSaveFile("main") as SAV9SV;
+if (sav9 != null)
+{
+    // Modify data
+    sav9.MyStatus.OT = "TRAINER";
+    
+    // Export (automatically encrypted with hash validation)
+    var data = sav9.Write();
+    File.WriteAllBytes("main", data.ToArray());
+    
+    Console.WriteLine("Gen 9 save exported (encrypted)");
+}
+```
+
+<Note>
+Gen 8-9 saves are automatically encrypted during export. The encryption matches the game's format.
+</Note>
+
+## Validating Before Export
+
+### Checksum Validation
+
+Always verify checksums before exporting:
+
+```csharp
+public bool ExportWithValidation(SaveFile sav, string outputPath)
+{
+    // Check if checksums are valid
+    if (!sav.ChecksumsValid)
+    {
+        Console.WriteLine("Warning: Invalid checksums detected!");
+        Console.WriteLine(sav.ChecksumInfo);
+        
+        // Attempt to fix by recalculating
+        sav.SetChecksums();
+        
+        if (!sav.ChecksumsValid)
+        {
+            Console.WriteLine("Failed to fix checksums. Aborting.");
+            return false;
+        }
+    }
+    
+    // Export
+    var data = sav.Write();
+    File.WriteAllBytes(outputPath, data.ToArray());
+    
+    Console.WriteLine($"Save exported to: {outputPath}");
+    return true;
+}
+```
+
+### Pre-Export Validation
+
+```csharp
+public bool ValidateBeforeExport(SaveFile sav)
+{
+    // Check version
+    if (!sav.IsVersionValid())
+    {
+        Console.WriteLine("Invalid save version");
+        return false;
+    }
+    
+    // Check if exportable
+    if (!sav.State.Exportable)
+    {
+        Console.WriteLine("Save is not exportable");
+        return false;
+    }
+    
+    // Verify party Pokémon
+    for (int i = 0; i < sav.PartyCount; i++)
+    {
+        var pk = sav.GetPartySlot(i);
+        if (pk.Species == 0)
+            continue;
+            
+        if (pk.Species > sav.MaxSpeciesID)
+        {
+            Console.WriteLine($"Invalid species in party slot {i}");
+            return false;
+        }
+    }
+    
+    return true;
+}
+```
+
+## Creating Backups
+
+### Backup Before Modification
+
+```csharp
+public void SafeModifyAndExport(string savePath)
+{
+    // Create backup
+    string backupPath = savePath + ".bak";
+    File.Copy(savePath, backupPath, overwrite: true);
+    Console.WriteLine($"Backup created: {backupPath}");
+    
+    // Load original
+    var sav = SaveUtil.GetSaveFile(savePath);
+    if (sav == null)
+    {
+        Console.WriteLine("Failed to load save");
+        return;
+    }
+    
+    // Make modifications
+    sav.OT = "MODIFIED";
+    sav.Money = 999999;
+    
+    // Validate
+    if (!ValidateBeforeExport(sav))
+    {
+        Console.WriteLine("Validation failed. Keeping backup.");
+        return;
+    }
+    
+    // Export
+    var data = sav.Write();
+    File.WriteAllBytes(savePath, data.ToArray());
+    
+    Console.WriteLine("Save modified and exported successfully");
+}
+```
+
+### Versioned Backups
+
+```csharp
+public string CreateVersionedBackup(string savePath)
+{
+    string directory = Path.GetDirectoryName(savePath);
+    string fileName = Path.GetFileNameWithoutExtension(savePath);
+    string extension = Path.GetExtension(savePath);
+    
+    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+    string backupPath = Path.Combine(directory, 
+        $"{fileName}_backup_{timestamp}{extension}");
+    
+    File.Copy(savePath, backupPath);
+    Console.WriteLine($"Backup: {backupPath}");
+    
+    return backupPath;
+}
+```
+
+## Working with Save File Metadata
+
+### Preserving Metadata
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+if (sav == null) return;
+
+// Store original metadata
+var originalFilePath = sav.Metadata.FilePath;
+var originalFileName = sav.Metadata.FileName;
+
+// Modify save
+sav.OT = "MODIFIED";
+
+// Export with preserved metadata
+var data = sav.Write();
+File.WriteAllBytes(originalFilePath, data.ToArray());
+
+Console.WriteLine($"Saved to: {originalFilePath}");
+```
+
+### Updating Metadata
+
+```csharp
+public void ExportWithMetadata(SaveFile sav, string newPath)
+{
+    // Update metadata
+    sav.Metadata.SetExtraInfo(newPath);
+    
+    // Export
+    var data = sav.Write();
+    File.WriteAllBytes(newPath, data.ToArray());
+    
+    Console.WriteLine($"Exported with updated metadata: {newPath}");
+}
+```
+
+## Batch Export Operations
+
+### Export Multiple Saves
+
+```csharp
+public void BatchExport(string[] savePaths, string outputDirectory)
+{
+    Directory.CreateDirectory(outputDirectory);
+    
+    foreach (string path in savePaths)
+    {
+        var sav = SaveUtil.GetSaveFile(path);
+        if (sav == null)
+        {
+            Console.WriteLine($"Skipping invalid: {path}");
+            continue;
+        }
+        
+        // Apply modifications
+        sav.Money = 999999;
+        
+        // Export
+        string fileName = Path.GetFileName(path);
+        string outputPath = Path.Combine(outputDirectory, fileName);
+        
+        var data = sav.Write();
+        File.WriteAllBytes(outputPath, data.ToArray());
+        
+        Console.WriteLine($"Exported: {fileName}");
+    }
+}
+```
+
+## Special Format Handling
+
+### GameCube Memory Card Saves
+
+```csharp
+var memCard = new SAV3GCMemoryCard(File.ReadAllBytes("Card.raw"));
+
+if (SaveUtil.TryGetSaveFile(memCard, out SaveFile? gcSave))
+{
+    // Modify save
+    gcSave.OT = "TRAINER";
+    
+    // Export back to memory card
+    var data = gcSave.Write();
+    
+    // Write to memory card data
+    memCard.WriteSaveGameData(data.Span);
+    
+    // Export full memory card
+    File.WriteAllBytes("Card_modified.raw", memCard.Data);
+}
+```
+
+### Emulator-Specific Formats
+
+```csharp
+// Load save with emulator footer
+var sav = SaveUtil.GetSaveFile("save.dsv");
+
+if (sav?.Metadata.Handler != null)
+{
+    Console.WriteLine($"Handler: {sav.Metadata.Handler.GetType().Name}");
+    
+    // Export with handler preserved
+    var data = sav.Write(); // Automatically includes handler footer
+    File.WriteAllBytes("save_modified.dsv", data.ToArray());
+}
+```
+
+## Error Handling During Export
+
+```csharp
+public bool SafeExport(SaveFile sav, string outputPath)
+{
+    try
+    {
+        // Validate before export
+        if (!sav.ChecksumsValid)
+        {
+            Console.WriteLine("Fixing checksums...");
+            sav.SetChecksums();
+        }
+        
+        if (!sav.IsVersionValid())
+        {
+            Console.WriteLine("Warning: Save version may be invalid");
+        }
+        
+        // Ensure directory exists
+        string directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        
+        // Export
+        var data = sav.Write();
+        
+        // Verify data size
+        if (data.Length == 0)
+        {
+            Console.WriteLine("Error: Export produced empty file");
+            return false;
+        }
+        
+        // Write to disk
+        File.WriteAllBytes(outputPath, data.ToArray());
+        
+        // Verify write
+        if (!File.Exists(outputPath))
+        {
+            Console.WriteLine("Error: File was not written");
+            return false;
+        }
+        
+        var fileInfo = new FileInfo(outputPath);
+        Console.WriteLine($"✓ Exported: {outputPath} ({fileInfo.Length} bytes)");
+        return true;
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        Console.WriteLine($"Access denied: {ex.Message}");
+        return false;
+    }
+    catch (IOException ex)
+    {
+        Console.WriteLine($"I/O error: {ex.Message}");
+        return false;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Unexpected error: {ex.Message}");
+        return false;
+    }
+}
+```
+
+## Complete Export Workflow
+
+```csharp
+public class SaveFileExporter
+{
+    public bool ExportSave(string inputPath, string outputPath, 
+        bool createBackup = true)
+    {
+        try
+        {
+            // 1. Validate input
+            if (!File.Exists(inputPath))
+            {
+                Console.WriteLine("Input file not found");
+                return false;
+            }
+            
+            // 2. Load save
+            Console.WriteLine("Loading save file...");
+            var sav = SaveUtil.GetSaveFile(inputPath);
+            if (sav == null)
+            {
+                Console.WriteLine("Failed to load save file");
+                return false;
+            }
+            
+            Console.WriteLine($"Loaded: {sav.Version} - {sav.OT}");
+            
+            // 3. Create backup if requested
+            if (createBackup)
+            {
+                string backupPath = CreateVersionedBackup(inputPath);
+                Console.WriteLine($"Backup created: {backupPath}");
+            }
+            
+            // 4. Validate save state
+            Console.WriteLine("Validating save...");
+            if (!ValidateBeforeExport(sav))
+            {
+                Console.WriteLine("Validation failed");
+                return false;
+            }
+            
+            // 5. Update checksums
+            Console.WriteLine("Updating checksums...");
+            sav.SetChecksums();
+            
+            // 6. Export
+            Console.WriteLine("Exporting...");
+            var data = sav.Write();
+            
+            // 7. Write to disk
+            File.WriteAllBytes(outputPath, data.ToArray());
+            
+            // 8. Verify output
+            var outputInfo = new FileInfo(outputPath);
+            Console.WriteLine($"✓ Export complete: {outputPath}");
+            Console.WriteLine($"  Size: {outputInfo.Length} bytes");
+            Console.WriteLine($"  Game: {sav.Version}");
+            Console.WriteLine($"  Generation: {sav.Generation}");
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export failed: {ex.Message}");
+            return false;
+        }
+    }
+    
+    private string CreateVersionedBackup(string path)
+    {
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string backupPath = $"{path}.{timestamp}.bak";
+        File.Copy(path, backupPath);
+        return backupPath;
+    }
+    
+    private bool ValidateBeforeExport(SaveFile sav)
+    {
+        return sav.IsVersionValid() && sav.State.Exportable;
+    }
+}
+```
+
+## Usage Example
+
+```csharp
+// Simple export
+var sav = SaveUtil.GetSaveFile("original.sav");
+sav.Money = 999999;
+File.WriteAllBytes("modified.sav", sav.Write().ToArray());
+
+// Safe export with validation
+var exporter = new SaveFileExporter();
+exporter.ExportSave("original.sav", "modified.sav", createBackup: true);
+```
+
+<Warning>
+Always test exported save files in-game before replacing your primary save. Use backups!
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Loading Saves" icon="folder-open" href="/guides/save-files/loading-saves">
+    Learn how to load save files
+  </Card>
+  
+  <Card title="Modifying Data" icon="pen-to-square" href="/guides/save-files/modifying-data">
+    Modify Pokémon and trainer data
+  </Card>
+</CardGroup>

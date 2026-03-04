@@ -1,0 +1,356 @@
+---
+title: Save Files
+description: Understanding the SaveFile base class and save file management in PKHeX.Core
+---
+
+## Overview
+
+The `SaveFile` class is the abstract base class for all Pokémon save file formats in PKHeX. It provides a unified interface for reading, writing, and manipulating save data across all generations of Pokémon games.
+
+## Key Concepts
+
+### Memory Buffer Architecture
+
+SaveFile uses a memory-based architecture for efficient data manipulation:
+
+```csharp
+public readonly Memory<byte> Buffer;
+public Span<byte> Data => Buffer.Span;
+```
+
+This design allows direct byte-level access to save data while maintaining memory safety.
+
+### Core Properties
+
+Every SaveFile implementation must provide:
+
+- **Version**: The game version (see [GameVersion enum](/concepts/game-versions))
+- **Generation**: The generation number (1-9)
+- **Context**: The entity context for this save file
+- **PKMType**: The type of PKM entities this save uses
+- **BoxCount**: Number of storage boxes
+- **BoxSlotCount**: Slots per box (typically 30)
+
+## Working with Save Files
+
+### Loading a Save File
+
+```csharp
+using PKHeX.Core;
+
+// Load from file bytes
+byte[] saveData = File.ReadAllBytes("pokemon.sav");
+var saveFile = SaveUtil.GetVariantSAV(saveData);
+
+if (saveFile == null)
+{
+    Console.WriteLine("Invalid save file!");
+    return;
+}
+
+Console.WriteLine($"Game: {saveFile.Version}");
+Console.WriteLine($"Generation: {saveFile.Generation}");
+Console.WriteLine($"Trainer: {saveFile.OT}");
+Console.WriteLine($"TID: {saveFile.DisplayTID}");
+```
+
+### Accessing Trainer Information
+
+SaveFile implements `ITrainerInfo` and provides trainer properties:
+
+```csharp
+// Basic trainer info
+string trainerName = saveFile.OT;
+byte gender = saveFile.Gender;
+int language = saveFile.Language;
+
+// Trainer IDs
+uint tid = saveFile.DisplayTID;  // Visible TID
+uint sid = saveFile.DisplaySID;  // Visible SID
+uint id32 = saveFile.ID32;       // Combined 32-bit ID
+
+// Play time
+int hours = saveFile.PlayedHours;
+int minutes = saveFile.PlayedMinutes;
+int seconds = saveFile.PlayedSeconds;
+string playTime = saveFile.PlayTimeString;  // "123ː45ː67"
+
+// Money and resources
+uint money = saveFile.Money;
+```
+
+### Box Data Management
+
+#### Reading Box Data
+
+```csharp
+// Get all Pokémon from all boxes
+IList<PKM> allPokemon = saveFile.BoxData;
+
+// Get Pokémon from a specific box (0-indexed)
+PKM[] box1Pokemon = saveFile.GetBoxData(0);
+
+// Get a specific Pokémon
+PKM pokemon = saveFile.GetBoxSlotAtIndex(box: 0, slot: 5);
+
+// Check if slot has Pokémon
+int offset = saveFile.GetBoxSlotOffset(0, 0);
+bool hasData = saveFile.IsPKMPresent(saveFile.BoxBuffer[offset..]);
+```
+
+#### Writing Box Data
+
+```csharp
+// Set a Pokémon in a box slot
+PKM myPokemon = CreatePokemon();
+saveFile.SetBoxSlotAtIndex(myPokemon, box: 1, slot: 10);
+
+// Set all box data at once
+IList<PKM> newBoxData = LoadPokemonFromFile();
+saveFile.BoxData = newBoxData;
+
+// Find next open slot
+int nextSlot = saveFile.NextOpenBoxSlot();
+if (nextSlot >= 0)
+{
+    saveFile.SetBoxSlotAtIndex(myPokemon, nextSlot);
+}
+else
+{
+    Console.WriteLine("Storage is full!");
+}
+```
+
+### Party Management
+
+```csharp
+// Check if save has party data
+if (saveFile.HasParty)
+{
+    // Get party Pokémon
+    IList<PKM> party = saveFile.PartyData;
+    int partyCount = saveFile.PartyCount;
+    
+    // Get specific party member
+    PKM starter = saveFile.GetPartySlotAtIndex(0);
+    
+    // Set party data
+    PKM[] newParty = new PKM[6];
+    // ... populate newParty ...
+    saveFile.PartyData = newParty;
+    
+    // Delete a party slot (shifts remaining down)
+    saveFile.DeletePartySlot(2);
+}
+```
+
+### Pokédex Operations
+
+```csharp
+if (saveFile.HasPokeDex)
+{
+    // Check seen/caught status
+    bool seenPikachu = saveFile.GetSeen(25);
+    bool caughtPikachu = saveFile.GetCaught(25);
+    
+    // Set seen/caught
+    saveFile.SetSeen(25, true);
+    saveFile.SetCaught(25, true);
+    
+    // Get completion stats
+    int seenCount = saveFile.SeenCount;
+    int caughtCount = saveFile.CaughtCount;
+    decimal percentSeen = saveFile.PercentSeen;
+    decimal percentCaught = saveFile.PercentCaught;
+    
+    Console.WriteLine($"Seen: {seenCount}/{saveFile.MaxSpeciesID} ({percentSeen:P1})");
+    Console.WriteLine($"Caught: {caughtCount}/{saveFile.MaxSpeciesID} ({percentCaught:P1})");
+}
+```
+
+### Storage Operations
+
+#### Sorting Boxes
+
+```csharp
+// Sort all boxes by species
+int repositioned = saveFile.SortBoxes();
+
+// Sort specific box range
+int count = saveFile.SortBoxes(
+    BoxStart: 0, 
+    BoxEnd: 5,
+    reverse: false
+);
+
+// Custom sort method
+int sorted = saveFile.SortBoxes(
+    BoxStart: 0,
+    BoxEnd: -1,
+    sortMethod: (pokemon, startIndex) => pokemon.OrderBy(p => p.CurrentLevel)
+);
+```
+
+#### Clearing Boxes
+
+```csharp
+// Clear all Pokémon from boxes 10-15
+int deleted = saveFile.ClearBoxes(BoxStart: 10, BoxEnd: 15);
+
+// Clear with criteria
+int deletedShinies = saveFile.ClearBoxes(
+    BoxStart: 0,
+    BoxEnd: -1,
+    deleteCriteria: pk => pk.IsShiny
+);
+```
+
+#### Modifying Pokémon in Bulk
+
+```csharp
+// Apply modification to all Pokémon in boxes
+int modified = saveFile.ModifyBoxes(
+    action: pk => pk.Heal(),  // Heal all Pokémon
+    BoxStart: 0,
+    BoxEnd: -1
+);
+
+// Make all Pokémon shiny
+int shinified = saveFile.ModifyBoxes(
+    action: pk => pk.SetShiny(),
+    BoxStart: 0,
+    BoxEnd: 5
+);
+```
+
+### Flags and Event Data
+
+```csharp
+// Read and write flag bits
+bool flag = saveFile.GetFlag(offset: 0x1000, bitIndex: 3);
+saveFile.SetFlag(offset: 0x1000, bitIndex: 3, value: true);
+
+// Marks save as edited
+// saveFile.State.Edited is automatically set to true
+```
+
+## Saving Changes
+
+### Writing Save File
+
+```csharp
+// Export save data
+Memory<byte> finalData = saveFile.Write();
+File.WriteAllBytes("pokemon_modified.sav", finalData.ToArray());
+
+// With export settings
+var settings = BinaryExportSetting.IncludeFooter;
+Memory<byte> dataWithFooter = saveFile.Write(settings);
+```
+
+### Checksums
+
+SaveFile automatically manages checksums:
+
+```csharp
+// Check if checksums are valid
+if (!saveFile.ChecksumsValid)
+{
+    Console.WriteLine("Warning: Invalid checksums!");
+    Console.WriteLine(saveFile.ChecksumInfo);
+}
+
+// Checksums are automatically updated on Write()
+var data = saveFile.Write();  // SetChecksums() called internally
+```
+
+## Game-Specific Implementations
+
+### Generation 8 Example (Sword/Shield)
+
+```csharp
+if (saveFile is SAV8SWSH swsh)
+{
+    // Access game-specific blocks
+    Box8 boxInfo = swsh.BoxInfo;
+    Party8 partyInfo = swsh.PartyInfo;
+    MyItem8 items = swsh.Items;
+    Zukan8 pokedex = swsh.Zukan;
+    Record8 records = swsh.Records;
+    
+    // Check save revision (base game, IoA, CT)
+    int revision = swsh.SaveRevision;
+    string revisionStr = swsh.SaveRevisionString;  // "-Base", "-IoA", "-CT"
+    
+    // Access raid data
+    RaidSpawnList8 galarRaids = swsh.RaidGalar;
+    RaidSpawnList8 armorRaids = swsh.RaidArmor;
+    RaidSpawnList8 crownRaids = swsh.RaidCrown;
+}
+```
+
+## Advanced Topics
+
+### Entity Import Settings
+
+```csharp
+// Configure how Pokémon are imported
+var settings = new EntityImportSettings
+{
+    UpdateToSaveFile = EntityImportOption.Enable,   // Adapt to save format
+    UpdatePokeDex = EntityImportOption.Enable,      // Update Pokédex
+    UpdateRecord = EntityImportOption.Enable        // Update records
+};
+
+saveFile.SetBoxSlotAtIndex(pokemon, 0, 0, settings);
+```
+
+### Slot Protection
+
+```csharp
+// Check if slot is locked or protected
+bool isLocked = saveFile.IsBoxSlotLocked(box: 0, slot: 0);
+bool isProtected = saveFile.IsBoxSlotOverwriteProtected(box: 0, slot: 0);
+
+// Check storage status
+bool isFull = saveFile.IsStorageFull;
+```
+
+### Box Management
+
+```csharp
+// Current box
+int currentBox = saveFile.CurrentBox;
+saveFile.CurrentBox = 5;
+
+// Swap two boxes
+bool success = saveFile.SwapBox(box1: 0, box2: 5);
+
+// Move box to new position
+bool moved = saveFile.MoveBox(box: 3, insertBeforeBox: 0);
+```
+
+## Best Practices
+
+<Warning>
+Always validate save data before making modifications:
+- Check `ChecksumsValid` before editing
+- Verify `Version` and `Generation` match expectations
+- Use `IsOriginValid` to validate Pokémon species
+</Warning>
+
+<Tip>
+Use the `State.Edited` property to track changes:
+```csharp
+if (saveFile.State.Edited)
+{
+    Console.WriteLine("Save file has been modified");
+}
+```
+</Tip>
+
+## Related Resources
+
+- [Pokémon Entities](/concepts/pokemon-entities) - Working with PKM objects
+- [Legality Analysis](/concepts/legality-analysis) - Validating Pokémon legality
+- [Game Versions](/concepts/game-versions) - Understanding version handling

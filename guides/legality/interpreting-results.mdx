@@ -1,0 +1,537 @@
+---
+title: "Interpreting Check Results"
+description: "Understanding legality analysis results and displaying them to users"
+icon: "list-check"
+---
+
+## Result Structure
+
+Each legality check produces a `CheckResult` with four key components:
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+foreach (var result in analysis.Results)
+{
+    // Severity: Valid, Fishy, or Invalid
+    Severity severity = result.Judgement;
+    
+    // Identifier: Which aspect was checked
+    CheckIdentifier identifier = result.Identifier;
+    
+    // Result code: Specific result
+    LegalityCheckResultCode code = result.Result;
+    
+    // Optional value: Additional context
+    uint value = result.Value;
+    
+    // Convenience properties
+    bool valid = result.Valid; // true if severity != Invalid
+    bool generic = result.IsNotGeneric(); // true if not just "Valid"
+}
+```
+
+## Filtering Results
+
+### Get All Invalid Checks
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+var issues = analysis.Results
+    .Where(r => !r.Valid)
+    .ToList();
+
+if (issues.Count > 0)
+{
+    Console.WriteLine($"Found {issues.Count} legality issues:");
+    foreach (var issue in issues)
+    {
+        Console.WriteLine($"  - {issue.Identifier}: {issue.Result}");
+    }
+}
+```
+
+### Get Checks by Category
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Ability checks
+var abilityResults = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.Ability);
+
+// Move checks
+var moveResults = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.CurrentMove);
+
+// IV checks
+var ivResults = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.IVs);
+
+// Ribbon checks
+var ribbonResults = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.Ribbon);
+```
+
+### Get Only Important Results
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Skip generic "Valid" results
+var important = analysis.Results
+    .Where(r => r.IsNotGeneric())
+    .ToList();
+
+foreach (var result in important)
+{
+    Console.WriteLine($"{result.Identifier}: {result.Result}");
+}
+```
+
+## Understanding Severity
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+foreach (var result in analysis.Results)
+{
+    switch (result.Judgement)
+    {
+        case Severity.Invalid:
+            // Red flag - definitively illegal
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ {result.Identifier}: {result.Result}");
+            break;
+            
+        case Severity.Fishy:
+            // Yellow flag - suspicious but technically valid
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"⚠ {result.Identifier}: {result.Result}");
+            break;
+            
+        case Severity.Valid:
+            // Green - all good
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ {result.Identifier}: Valid");
+            break;
+    }
+    Console.ResetColor();
+}
+```
+
+## Common Result Codes
+
+### Ability Results
+
+```csharp
+var abilityCheck = analysis.Results
+    .FirstOrDefault(r => r.Identifier == CheckIdentifier.Ability);
+
+if (abilityCheck != default)
+{
+    switch (abilityCheck.Result)
+    {
+        case LegalityCheckResultCode.Valid:
+            Console.WriteLine("Ability is legal");
+            break;
+            
+        case LegalityCheckResultCode.AbilityMismatch:
+            Console.WriteLine("Ability doesn't match encounter");
+            break;
+            
+        case LegalityCheckResultCode.AbilityHiddenFail:
+            Console.WriteLine("Hidden ability not possible for this encounter");
+            break;
+            
+        case LegalityCheckResultCode.AbilityHiddenUnavailable:
+            Console.WriteLine("Hidden ability not available in this generation");
+            break;
+            
+        case LegalityCheckResultCode.AbilityCapsuleUsed:
+            Console.WriteLine("Ability changed via Ability Capsule");
+            break;
+            
+        case LegalityCheckResultCode.AbilityPatchUsed:
+            Console.WriteLine("Hidden ability granted via Ability Patch");
+            break;
+    }
+}
+```
+
+### Move Results
+
+```csharp
+var moveChecks = analysis.Results
+    .Where(r => r.Identifier == CheckIdentifier.CurrentMove)
+    .ToList();
+
+foreach (var check in moveChecks)
+{
+    switch (check.Result)
+    {
+        case LegalityCheckResultCode.Valid:
+            Console.WriteLine("Move is legal");
+            break;
+            
+        case LegalityCheckResultCode.MovePPTooHigh_01:
+            // Value contains: slot in lower 16 bits, PP in upper 16 bits
+            int slot = check.Argument;
+            int pp = check.Argument2;
+            Console.WriteLine($"Move {slot + 1} has too much PP: {pp}");
+            break;
+            
+        case LegalityCheckResultCode.MovePPUpsTooHigh_01:
+            int slot2 = check.Argument;
+            int ppups = check.Argument2;
+            Console.WriteLine($"Move {slot2 + 1} has too many PP Ups: {ppups}");
+            break;
+    }
+}
+```
+
+### Ball Results
+
+```csharp
+var ballCheck = analysis.Results
+    .FirstOrDefault(r => r.Identifier == CheckIdentifier.Ball);
+
+if (ballCheck != default && !ballCheck.Valid)
+{
+    switch (ballCheck.Result)
+    {
+        case LegalityCheckResultCode.BallEncMismatch:
+            Console.WriteLine("Ball doesn't match encounter type");
+            break;
+            
+        case LegalityCheckResultCode.BallUnavailable:
+            Console.WriteLine("Ball not available in this game");
+            break;
+            
+        case LegalityCheckResultCode.BallEggMaster:
+            Console.WriteLine("Eggs cannot be in Master Balls");
+            break;
+    }
+}
+```
+
+## Result Code Arguments
+
+Some result codes include numeric arguments for detailed messages:
+
+```csharp
+var result = analysis.Results
+    .FirstOrDefault(r => r.Result == LegalityCheckResultCode.IVFlawlessCountGEQ_0);
+
+if (result != default)
+{
+    // The Value contains the minimum required flawless IVs
+    uint minFlawless = result.Value;
+    Console.WriteLine($"Requires at least {minFlawless} flawless IVs");
+}
+
+// Two-argument results use Argument and Argument2
+var ppResult = analysis.Results
+    .FirstOrDefault(r => r.Result == LegalityCheckResultCode.MovePPTooHigh_01);
+
+if (ppResult != default)
+{
+    ushort slot = ppResult.Argument;   // Lower 16 bits
+    ushort value = ppResult.Argument2; // Upper 16 bits
+    Console.WriteLine($"Move in slot {slot + 1} has PP value {value}");
+}
+```
+
+## Generating Reports
+
+### Simple Text Report
+
+```csharp
+public static string GenerateReport(LegalityAnalysis analysis)
+{
+    var sb = new StringBuilder();
+    var pk = analysis.Entity;
+    
+    sb.AppendLine("=== Legality Report ===");
+    sb.AppendLine($"Species: {pk.Species} ({pk.Nickname})");
+    sb.AppendLine($"Level: {pk.CurrentLevel}");
+    sb.AppendLine($"OT: {pk.OriginalTrainerName}");
+    sb.AppendLine($"TID/SID: {pk.DisplayTID}/{pk.DisplaySID}");
+    sb.AppendLine();
+    
+    sb.AppendLine($"Overall Status: {(analysis.Valid ? "LEGAL" : "ILLEGAL")}");
+    sb.AppendLine();
+    
+    if (!analysis.Valid)
+    {
+        sb.AppendLine("Issues Found:");
+        
+        var issues = analysis.Results.Where(r => !r.Valid);
+        foreach (var issue in issues)
+        {
+            sb.AppendLine($"  [{issue.Identifier}] {issue.Result}");
+        }
+    }
+    
+    return sb.ToString();
+}
+```
+
+### Detailed HTML Report
+
+```csharp
+public static string GenerateHTMLReport(LegalityAnalysis analysis)
+{
+    var sb = new StringBuilder();
+    var pk = analysis.Entity;
+    
+    sb.AppendLine("<!DOCTYPE html><html><head>");
+    sb.AppendLine("<style>");
+    sb.AppendLine(".valid { color: green; }");
+    sb.AppendLine(".invalid { color: red; font-weight: bold; }");
+    sb.AppendLine(".fishy { color: orange; }");
+    sb.AppendLine("</style>");
+    sb.AppendLine("</head><body>");
+    
+    sb.AppendLine($"<h1>{pk.Nickname} - Legality Report</h1>");
+    
+    var statusClass = analysis.Valid ? "valid" : "invalid";
+    var statusText = analysis.Valid ? "LEGAL" : "ILLEGAL";
+    sb.AppendLine($"<p class=\"{statusClass}\">Status: {statusText}</p>");
+    
+    sb.AppendLine("<h2>Check Results</h2>");
+    sb.AppendLine("<table border='1'>");
+    sb.AppendLine("<tr><th>Category</th><th>Result</th><th>Status</th></tr>");
+    
+    foreach (var result in analysis.Results)
+    {
+        var className = result.Judgement switch
+        {
+            Severity.Valid => "valid",
+            Severity.Fishy => "fishy",
+            Severity.Invalid => "invalid",
+            _ => ""
+        };
+        
+        sb.AppendLine($"<tr class=\"{className}\">");
+        sb.AppendLine($"<td>{result.Identifier}</td>");
+        sb.AppendLine($"<td>{result.Result}</td>");
+        sb.AppendLine($"<td>{result.Judgement}</td>");
+        sb.AppendLine("</tr>");
+    }
+    
+    sb.AppendLine("</table>");
+    sb.AppendLine("</body></html>");
+    
+    return sb.ToString();
+}
+```
+
+### JSON Export
+
+```csharp
+using System.Text.Json;
+
+public class LegalityReport
+{
+    public string Species { get; set; }
+    public string Nickname { get; set; }
+    public bool Valid { get; set; }
+    public List<CheckResultInfo> Results { get; set; }
+}
+
+public class CheckResultInfo
+{
+    public string Category { get; set; }
+    public string Result { get; set; }
+    public string Severity { get; set; }
+    public bool Valid { get; set; }
+}
+
+public static string GenerateJSON(LegalityAnalysis analysis)
+{
+    var pk = analysis.Entity;
+    
+    var report = new LegalityReport
+    {
+        Species = pk.Species.ToString(),
+        Nickname = pk.Nickname,
+        Valid = analysis.Valid,
+        Results = analysis.Results.Select(r => new CheckResultInfo
+        {
+            Category = r.Identifier.ToString(),
+            Result = r.Result.ToString(),
+            Severity = r.Judgement.ToString(),
+            Valid = r.Valid
+        }).ToList()
+    };
+    
+    return JsonSerializer.Serialize(report, new JsonSerializerOptions
+    {
+        WriteIndented = true
+    });
+}
+```
+
+## Display Examples
+
+### Console Output with Colors
+
+```csharp
+public static void DisplayResults(LegalityAnalysis analysis)
+{
+    var pk = analysis.Entity;
+    
+    Console.WriteLine($"\n=== {pk.Nickname} (#{pk.Species:000}) ===");
+    Console.WriteLine($"Level {pk.CurrentLevel} | OT: {pk.OriginalTrainerName}");
+    Console.WriteLine();
+    
+    // Overall status
+    if (analysis.Valid)
+    {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ LEGAL");
+    }
+    else
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("✗ ILLEGAL");
+    }
+    Console.ResetColor();
+    Console.WriteLine();
+    
+    // Group by identifier
+    var grouped = analysis.Results
+        .Where(r => r.IsNotGeneric())
+        .GroupBy(r => r.Identifier);
+    
+    foreach (var group in grouped)
+    {
+        Console.WriteLine($"{group.Key}:");
+        
+        foreach (var result in group)
+        {
+            var symbol = result.Judgement switch
+            {
+                Severity.Valid => "✓",
+                Severity.Fishy => "⚠",
+                Severity.Invalid => "✗",
+                _ => "?"
+            };
+            
+            Console.ForegroundColor = result.Judgement switch
+            {
+                Severity.Valid => ConsoleColor.Green,
+                Severity.Fishy => ConsoleColor.Yellow,
+                Severity.Invalid => ConsoleColor.Red,
+                _ => ConsoleColor.White
+            };
+            
+            Console.WriteLine($"  {symbol} {result.Result}");
+            Console.ResetColor();
+        }
+        Console.WriteLine();
+    }
+}
+```
+
+### Summary Statistics
+
+```csharp
+public static void DisplayStatistics(LegalityAnalysis analysis)
+{
+    var total = analysis.Results.Count;
+    var valid = analysis.Results.Count(r => r.Judgement == Severity.Valid);
+    var fishy = analysis.Results.Count(r => r.Judgement == Severity.Fishy);
+    var invalid = analysis.Results.Count(r => r.Judgement == Severity.Invalid);
+    
+    Console.WriteLine("Check Statistics:");
+    Console.WriteLine($"  Total Checks: {total}");
+    Console.WriteLine($"  Valid: {valid} ({100.0 * valid / total:F1}%)");
+    Console.WriteLine($"  Fishy: {fishy} ({100.0 * fishy / total:F1}%)");
+    Console.WriteLine($"  Invalid: {invalid} ({100.0 * invalid / total:F1}%)");
+    Console.WriteLine();
+    
+    if (invalid > 0)
+    {
+        Console.WriteLine("Invalid Checks:");
+        var invalidChecks = analysis.Results
+            .Where(r => !r.Valid)
+            .GroupBy(r => r.Identifier);
+        
+        foreach (var group in invalidChecks)
+        {
+            Console.WriteLine($"  {group.Key}: {group.Count()} issue(s)");
+        }
+    }
+}
+```
+
+## Localization
+
+Result codes are enums that can be localized:
+
+```csharp
+using PKHeX.Core;
+
+// PKHeX includes localization data
+public static string GetLocalizedResult(CheckResult result)
+{
+    // You would typically load these from resource files
+    // PKHeX.Core includes LegalityCheckLocalization class
+    return result.Result switch
+    {
+        LegalityCheckResultCode.Valid => "Valid",
+        LegalityCheckResultCode.AbilityMismatch => "Ability does not match.",
+        LegalityCheckResultCode.AbilityHiddenFail => "Hidden Ability mismatch.",
+        LegalityCheckResultCode.MovePPTooHigh_01 => $"Move PP is too high.",
+        // ... etc
+        _ => result.Result.ToString()
+    };
+}
+```
+
+## Quick Reference
+
+<AccordionGroup>
+  <Accordion title="Get all issues">
+    ```csharp
+    var issues = analysis.Results.Where(r => !r.Valid).ToList();
+    ```
+  </Accordion>
+  
+  <Accordion title="Count invalid checks">
+    ```csharp
+    int invalidCount = analysis.Results.Count(r => !r.Valid);
+    ```
+  </Accordion>
+  
+  <Accordion title="Check specific category">
+    ```csharp
+    var abilityCheck = analysis.Results
+        .FirstOrDefault(r => r.Identifier == CheckIdentifier.Ability);
+    ```
+  </Accordion>
+  
+  <Accordion title="Generate simple report">
+    ```csharp
+    foreach (var result in analysis.Results.Where(r => !r.Valid))
+    {
+        Console.WriteLine($"{result.Identifier}: {result.Result}");
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Validation" icon="code" href="/guides/legality/custom-validation">
+    Learn how to add your own validation logic
+  </Card>
+  
+  <Card title="Overview" icon="shield-check" href="/guides/legality/overview">
+    Return to the legality system overview
+  </Card>
+</CardGroup>

@@ -1,0 +1,501 @@
+---
+title: Showdown Parsing
+description: Parse and generate Pokémon Showdown format data
+---
+
+# Showdown Parsing
+
+The Showdown parsing system provides functionality to import and export Pokémon data in Pokémon Showdown's text format. This is widely used for sharing competitive Pokémon sets.
+
+## ShowdownSet
+
+Represents a Pokémon set in Pokémon Showdown format.
+
+**Namespace:** `PKHeX.Core`
+
+### Constructors
+
+#### From Text
+
+```csharp
+public ShowdownSet(ReadOnlySpan<char> input, BattleTemplateLocalization? localization = null)
+public ShowdownSet(IEnumerable<string> lines, BattleTemplateLocalization? localization = null)
+```
+
+Loads a ShowdownSet from input text or lines.
+
+**Example:**
+```csharp
+var text = @"Pikachu @ Light Ball
+Ability: Static
+Level: 100
+Shiny: Yes
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Volt Tackle
+- Iron Tail
+- Quick Attack
+- Thunder Wave";
+
+var set = new ShowdownSet(text);
+```
+
+#### From PKM
+
+```csharp
+public ShowdownSet(PKM pk, BattleTemplateLocalization? localization = null)
+```
+
+Converts a PKM entity to a ShowdownSet.
+
+**Example:**
+```csharp
+var set = new ShowdownSet(pk);
+var text = set.Text;
+```
+
+### Properties
+
+- `Species` (ushort) - Species ID
+- `Context` (EntityContext) - Generation context
+- `Nickname` (string) - Pokémon nickname
+- `Gender` (byte?) - Gender (0=Male, 1=Female, null=Unspecified)
+- `HeldItem` (int) - Held item ID
+- `Ability` (int) - Ability ID
+- `Level` (byte) - Level (default: 100)
+- `Shiny` (bool) - Whether the Pokémon is shiny
+- `Friendship` (byte) - Friendship value (default: 255)
+- `Nature` (Nature) - Nature
+- `FormName` (string) - Form name
+- `Form` (byte) - Form ID
+- `EVs` (int[]) - Effort values [HP, Atk, Def, SpA, SpD, Spe]
+- `IVs` (int[]) - Individual values [HP, Atk, Def, SpA, SpD, Spe]
+- `HiddenPowerType` (sbyte) - Hidden Power type (-1 if not specified)
+- `TeraType` (MoveType) - Tera type (Gen 9)
+- `Moves` (ushort[]) - Move IDs
+- `CanGigantamax` (bool) - Can Gigantamax (Gen 8)
+- `DynamaxLevel` (byte) - Dynamax level (Gen 8, default: 10)
+- `InvalidLines` (List&lt;BattleTemplateParseError&gt;) - Lines that failed to parse
+
+### Methods
+
+#### GetText
+
+```csharp
+public string Text { get; }  // Default English
+public string GetText(string language = "en")
+public string GetText(LanguageID language)
+public string GetText(in BattleTemplateExportSettings settings)
+```
+
+Gets the text representation of the set.
+
+**Example:**
+```csharp
+var englishText = set.GetText();
+var japaneseText = set.GetText(LanguageID.Japanese);
+```
+
+#### GetSetLines
+
+```csharp
+public List<string> GetSetLines(string language = "en")
+public List<string> GetSetLines(in BattleTemplateExportSettings settings)
+public void GetSetLines(List<string> result, in BattleTemplateExportSettings settings)
+```
+
+Gets all lines comprising the exported set details.
+
+#### InterpretAsPreview
+
+```csharp
+public void InterpretAsPreview(PKM pk)
+```
+
+Forces some properties to indicate the set for future display values (e.g., Nature preview from IVs for Gen 1-2).
+
+---
+
+## ShowdownParsing
+
+Utility class for parsing and generating Showdown format data.
+
+**Namespace:** `PKHeX.Core`
+
+### Parsing Methods
+
+#### GetShowdownSets (Multiple)
+
+```csharp
+public static IEnumerable<ShowdownSet> GetShowdownSets(IEnumerable<string> lines)
+public static IEnumerable<ShowdownSet> GetShowdownSets(ReadOnlyMemory<char> text)
+public static IEnumerable<ShowdownSet> GetShowdownSets(string text)
+public static IEnumerable<ShowdownSet> GetShowdownSets(IEnumerable<string> lines, BattleTemplateLocalization localization)
+public static IEnumerable<ShowdownSet> GetShowdownSets(ReadOnlyMemory<char> text, BattleTemplateLocalization localization)
+```
+
+Fetches multiple ShowdownSet objects from input text.
+
+**Example:**
+```csharp
+var text = @"
+Pikachu @ Light Ball
+Ability: Static
+- Volt Tackle
+
+Charizard @ Leftovers
+Ability: Blaze
+- Flamethrower
+";
+
+var sets = ShowdownParsing.GetShowdownSets(text);
+foreach (var set in sets)
+{
+    Console.WriteLine($"{set.Species} - {set.Ability}");
+}
+```
+
+#### GetShowdownSet (Single)
+
+```csharp
+public static ShowdownSet GetShowdownSet(ReadOnlySpan<char> text, out int length)
+public static ShowdownSet GetShowdownSet(ReadOnlySpan<char> text, BattleTemplateLocalization localization, out int length)
+```
+
+Attempts to parse a single ShowdownSet from input text.
+
+**Parameters:**
+- `text` - Input text to parse
+- `length` - Amount of characters consumed
+
+#### TryParseAnyLanguage
+
+```csharp
+public static bool TryParseAnyLanguage(ReadOnlySpan<char> message, out ShowdownSet? set)
+public static bool TryParseAnyLanguage(IReadOnlyList<string> setLines, out ShowdownSet? set)
+```
+
+Tries to parse the input in any supported language.
+
+**Returns:** True if successfully parsed
+
+**Example:**
+```csharp
+if (ShowdownParsing.TryParseAnyLanguage(text, out var set))
+{
+    Console.WriteLine($"Parsed: {set.Species}");
+}
+```
+
+### Export Methods
+
+#### GetShowdownText (Single)
+
+```csharp
+public static string GetShowdownText(PKM pk)
+public static string GetShowdownText(PKM pk, in BattleTemplateExportSettings settings)
+```
+
+Converts PKM data into Pokémon Showdown importable format.
+
+**Example:**
+```csharp
+var showdownText = ShowdownParsing.GetShowdownText(pk);
+Console.WriteLine(showdownText);
+```
+
+#### GetShowdownText (Multiple)
+
+```csharp
+public static IEnumerable<string> GetShowdownText(IEnumerable<PKM> data, in BattleTemplateExportSettings settings)
+```
+
+Fetches ShowdownSet lines from multiple PKM data.
+
+#### GetShowdownSets (From PKM)
+
+```csharp
+public static IEnumerable<ShowdownSet> GetShowdownSets(IEnumerable<PKM> data)
+public static string GetShowdownSets(IEnumerable<PKM> data, string separator)
+public static string GetShowdownSets(IEnumerable<PKM> data, string separator, in BattleTemplateExportSettings settings)
+```
+
+Fetches ShowdownSets from PKM data and optionally combines into a single string.
+
+**Example:**
+```csharp
+var allSets = ShowdownParsing.GetShowdownSets(pkms, Environment.NewLine + Environment.NewLine);
+```
+
+#### GetLocalizedPreviewText
+
+```csharp
+public static string GetLocalizedPreviewText(PKM pk, in BattleTemplateExportSettings settings)
+```
+
+Gets a localized string preview of the provided PKM.
+
+### Form Name Methods
+
+#### GetFormFromString
+
+```csharp
+public static byte GetFormFromString(ReadOnlySpan<char> name, GameStrings strings, ushort species, EntityContext context)
+```
+
+Gets the form ID from the input form name.
+
+**Returns:** Zero (base form) if no form matches
+
+#### GetStringFromForm
+
+```csharp
+public static string GetStringFromForm(byte form, GameStrings strings, ushort species, EntityContext context)
+```
+
+Converts a form ID to string representation.
+
+#### GetShowdownFormName
+
+```csharp
+public static string GetShowdownFormName(ushort species, string form)
+```
+
+Converts the PKHeX standard form name to Showdown's form name.
+
+**Example:**
+```csharp
+var showdownForm = ShowdownParsing.GetShowdownFormName(Species.Vivillon, "Poké Ball");
+// Returns: "Pokeball"
+```
+
+#### GetFormNameFromShowdownFormName
+
+```csharp
+public static string GetFormNameFromShowdownFormName(ushort species, string form, int ability)
+```
+
+Converts the Showdown form name to PKHeX's form name.
+
+### Translation Methods
+
+#### TryTranslate
+
+```csharp
+public static bool TryTranslate(ReadOnlySpan<char> message, BattleTemplateExportSettings outputSettings, out string? translated)
+public static bool TryTranslate(IReadOnlyList<string> message, BattleTemplateExportSettings outputSettings, out string? translated)
+```
+
+Tries to translate the input battle template into a localized string.
+
+**Example:**
+```csharp
+var japaneseSettings = new BattleTemplateExportSettings(LanguageID.Japanese);
+if (ShowdownParsing.TryTranslate(englishText, japaneseSettings, out var translated))
+{
+    Console.WriteLine(translated);
+}
+```
+
+---
+
+## ShowdownTeam
+
+Utility for retrieving Showdown teams from URLs.
+
+**Namespace:** `PKHeX.Core`
+
+### Methods
+
+#### GetURL
+
+```csharp
+public static string GetURL(int team)
+```
+
+Generates the API URL for retrieving a Showdown team.
+
+**Example:**
+```csharp
+var url = ShowdownTeam.GetURL(123456);
+// Returns: "https://play.pokemonshowdown.com/api/getteam?teamid=123456&raw=1"
+```
+
+#### TryGetSets
+
+```csharp
+public static bool TryGetSets(string url, out string? content)
+```
+
+Attempts to retrieve Showdown team data from a URL and reformats it.
+
+**Returns:** True if successfully retrieved and reformatted
+
+**Example:**
+```csharp
+if (ShowdownTeam.TryGetSets(url, out var content))
+{
+    var sets = ShowdownParsing.GetShowdownSets(content);
+}
+```
+
+#### IsURL
+
+```csharp
+public static bool IsURL(ReadOnlySpan<char> text, out string? url)
+```
+
+Determines if the provided text is a valid Showdown team URL.
+
+**Returns:** True if valid, with normalized API URL in the out parameter
+
+**Example:**
+```csharp
+if (ShowdownTeam.IsURL(userInput, out var normalizedUrl))
+{
+    ShowdownTeam.TryGetSets(normalizedUrl, out var content);
+}
+```
+
+#### URL Parsing Methods
+
+```csharp
+public static bool TryCheckWeb(ReadOnlySpan<char> text, out string? url)
+public static bool TryCheckAPI(ReadOnlySpan<char> text, out string? url)
+public static bool TryGetIndexWeb(ReadOnlySpan<char> text, out int team)
+public static bool TryGetIndexAPI(ReadOnlySpan<char> text, out int team)
+```
+
+Helpers for parsing team IDs from various Showdown URL formats:
+- `https://psim.us/t/[team]`
+- `https://teams.pokemonshowdown.com/[team]`
+- `https://play.pokemonshowdown.com/api/getteam?teamid=[team]&raw=1`
+
+---
+
+## Usage Examples
+
+### Import from Showdown Format
+
+```csharp
+var showdownText = @"
+Pikachu (M) @ Light Ball
+Ability: Lightning Rod
+Level: 50
+Shiny: Yes
+EVs: 4 HP / 252 Atk / 252 Spe
+Adamant Nature
+- Volt Tackle
+- Iron Tail
+- Quick Attack
+- Brick Break
+";
+
+var set = new ShowdownSet(showdownText);
+
+// Access parsed data
+Console.WriteLine($"Species: {set.Species}");
+Console.WriteLine($"Item: {set.HeldItem}");
+Console.WriteLine($"Nature: {set.Nature}");
+Console.WriteLine($"Shiny: {set.Shiny}");
+```
+
+### Export to Showdown Format
+
+```csharp
+// From PKM
+var showdownText = ShowdownParsing.GetShowdownText(pk);
+
+// From ShowdownSet
+var set = new ShowdownSet(pk);
+var text = set.Text;
+
+// With custom settings
+var settings = new BattleTemplateExportSettings(LanguageID.Japanese);
+var japaneseText = set.GetText(settings);
+```
+
+### Batch Import Multiple Sets
+
+```csharp
+var multipleTeams = @"
+Pikachu @ Light Ball
+Ability: Static
+- Volt Tackle
+
+Charizard @ Leftovers  
+Ability: Blaze
+- Flamethrower
+
+Blastoise @ Sitrus Berry
+Ability: Torrent
+- Surf
+";
+
+var sets = ShowdownParsing.GetShowdownSets(multipleTeams);
+foreach (var set in sets)
+{
+    Console.WriteLine($"Importing {set.Species}...");
+    // Convert to PKM and import
+}
+```
+
+### Handle Invalid Lines
+
+```csharp
+var set = new ShowdownSet(text);
+if (set.InvalidLines.Count > 0)
+{
+    Console.WriteLine("Failed to parse the following lines:");
+    foreach (var error in set.InvalidLines)
+    {
+        Console.WriteLine($"- {error.Type}: {error.Line}");
+    }
+}
+```
+
+### Import from Team URL
+
+```csharp
+var teamUrl = "https://psim.us/t/123456";
+
+if (ShowdownTeam.IsURL(teamUrl, out var apiUrl))
+{
+    if (ShowdownTeam.TryGetSets(apiUrl, out var content))
+    {
+        var sets = ShowdownParsing.GetShowdownSets(content);
+        foreach (var set in sets)
+        {
+            Console.WriteLine($"Team member: {set.Species}");
+        }
+    }
+}
+```
+
+### Multi-Language Support
+
+```csharp
+// Try parsing in any language
+if (ShowdownParsing.TryParseAnyLanguage(foreignText, out var set))
+{
+    Console.WriteLine($"Successfully parsed: {set.Species}");
+}
+
+// Export in specific language
+var settings = new BattleTemplateExportSettings(LanguageID.German);
+var germanText = ShowdownParsing.GetShowdownText(pk, settings);
+```
+
+### Form Name Conversion
+
+```csharp
+// Showdown to PKHeX
+var pkhexForm = ShowdownParsing.GetFormNameFromShowdownFormName(
+    Species.Basculin, "Blue-Striped", ability: 0);
+// Returns: "Blue"
+
+// PKHeX to Showdown
+var showdownForm = ShowdownParsing.GetShowdownFormName(
+    Species.Vivillon, "Poké Ball");
+// Returns: "Pokeball"
+```

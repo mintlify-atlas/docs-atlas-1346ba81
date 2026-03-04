@@ -1,0 +1,844 @@
+---
+title: PKM Class
+description: Base class for all Pokémon data structures in PKHeX
+---
+
+## Overview
+
+The `PKM` class is the abstract base class for all Pokémon entity data structures in PKHeX. It provides a unified interface for accessing and manipulating Pokémon data across all generations.
+
+**Namespace:** `PKHeX.Core`
+
+**Inheritance:** `Object` → `PKM`
+
+**Implements:** `ISpeciesForm`, `ITrainerID32`, `IGeneration`, `IShiny`, `ILangNick`, `IGameValueLimit`, `INature`, `IFatefulEncounter`, `IStringConverter`, `ITrashIntrospection`
+
+## Constructors
+
+<ParamField path="PKM(Memory<byte> data)" type="constructor">
+  Creates a new PKM instance from existing byte data.
+  
+  **Parameters:**
+  - `data` (Memory&lt;byte&gt;): Raw byte data containing the Pokémon's information
+</ParamField>
+
+<ParamField path="PKM(int size)" type="constructor">
+  Creates a new PKM instance with a new byte array of the specified size.
+  
+  **Parameters:**
+  - `size` (int): Size of the byte array to allocate
+</ParamField>
+
+## Core Properties
+
+### Data Storage
+
+<ResponseField name="Data" type="Span<byte>">
+  Gets the raw byte data span for the Pokémon.
+</ResponseField>
+
+<ResponseField name="SIZE_PARTY" type="int">
+  The size of the Pokémon data structure when stored in party format.
+</ResponseField>
+
+<ResponseField name="SIZE_STORED" type="int">
+  The size of the Pokémon data structure when stored in PC box format.
+</ResponseField>
+
+<ResponseField name="Extension" type="string">
+  Gets the file extension for this PKM type (e.g., "pk8", "pk9").
+</ResponseField>
+
+<ResponseField name="Context" type="EntityContext">
+  Gets the entity context (generation/game) this Pokémon belongs to.
+</ResponseField>
+
+<ResponseField name="Format" type="byte">
+  Gets the format generation of this Pokémon data structure.
+</ResponseField>
+
+### Species and Form
+
+<ResponseField name="Species" type="ushort">
+  Gets or sets the species ID of the Pokémon.
+</ResponseField>
+
+<ResponseField name="Form" type="byte">
+  Gets or sets the form index of the Pokémon.
+</ResponseField>
+
+<ResponseField name="PersonalInfo" type="PersonalInfo">
+  Gets the personal info entry containing base stats and other species-specific data.
+</ResponseField>
+
+### Identity
+
+<ResponseField name="Nickname" type="string">
+  Gets or sets the nickname of the Pokémon.
+</ResponseField>
+
+<ResponseField name="IsNicknamed" type="bool">
+  Gets or sets whether the Pokémon has a custom nickname.
+</ResponseField>
+
+<ResponseField name="EncryptionConstant" type="uint">
+  Gets or sets the encryption constant used for data encryption and shiny determination.
+</ResponseField>
+
+<ResponseField name="PID" type="uint">
+  Gets or sets the Personality ID of the Pokémon.
+</ResponseField>
+
+### Trainer Information
+
+<ResponseField name="OriginalTrainerName" type="string">
+  Gets or sets the Original Trainer's name.
+</ResponseField>
+
+<ResponseField name="OriginalTrainerGender" type="byte">
+  Gets or sets the Original Trainer's gender (0 = Male, 1 = Female).
+</ResponseField>
+
+<ResponseField name="TID16" type="ushort">
+  Gets or sets the 16-bit Trainer ID.
+</ResponseField>
+
+<ResponseField name="SID16" type="ushort">
+  Gets or sets the 16-bit Secret ID.
+</ResponseField>
+
+<ResponseField name="ID32" type="uint">
+  Gets or sets the combined 32-bit Trainer ID.
+</ResponseField>
+
+<ResponseField name="DisplayTID" type="uint">
+  Gets or sets the Trainer ID as displayed in-game (format varies by generation).
+</ResponseField>
+
+<ResponseField name="DisplaySID" type="uint">
+  Gets or sets the Secret ID as displayed in-game (format varies by generation).
+</ResponseField>
+
+### Battle Properties
+
+<ResponseField name="Nature" type="Nature">
+  Gets or sets the nature of the Pokémon.
+</ResponseField>
+
+<ResponseField name="StatNature" type="Nature">
+  Gets or sets the nature used for stat calculations (can differ from display nature in Gen 8+).
+</ResponseField>
+
+<ResponseField name="Ability" type="int">
+  Gets or sets the ability index.
+</ResponseField>
+
+<ResponseField name="AbilityNumber" type="int">
+  Gets or sets the ability number (1, 2, or 4 for hidden).
+</ResponseField>
+
+<ResponseField name="Gender" type="byte">
+  Gets or sets the gender (0 = Male, 1 = Female, 2 = Genderless).
+</ResponseField>
+
+<ResponseField name="HeldItem" type="int">
+  Gets or sets the held item index.
+</ResponseField>
+
+### Stats and IVs/EVs
+
+<ResponseField name="CurrentLevel" type="byte">
+  Gets or sets the current level of the Pokémon.
+</ResponseField>
+
+<ResponseField name="EXP" type="uint">
+  Gets or sets the experience points.
+</ResponseField>
+
+<ResponseField name="IV_HP" type="int">
+  Gets or sets the HP Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="IV_ATK" type="int">
+  Gets or sets the Attack Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="IV_DEF" type="int">
+  Gets or sets the Defense Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="IV_SPA" type="int">
+  Gets or sets the Special Attack Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="IV_SPD" type="int">
+  Gets or sets the Special Defense Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="IV_SPE" type="int">
+  Gets or sets the Speed Individual Value (0-31).
+</ResponseField>
+
+<ResponseField name="EV_HP" type="int">
+  Gets or sets the HP Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="EV_ATK" type="int">
+  Gets or sets the Attack Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="EV_DEF" type="int">
+  Gets or sets the Defense Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="EV_SPA" type="int">
+  Gets or sets the Special Attack Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="EV_SPD" type="int">
+  Gets or sets the Special Defense Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="EV_SPE" type="int">
+  Gets or sets the Speed Effort Value (0-252).
+</ResponseField>
+
+<ResponseField name="IVTotal" type="int">
+  Gets the sum of all Individual Values.
+</ResponseField>
+
+<ResponseField name="EVTotal" type="int">
+  Gets the sum of all Effort Values.
+</ResponseField>
+
+<ResponseField name="FlawlessIVCount" type="int">
+  Gets the count of IVs that are at maximum value.
+</ResponseField>
+
+### Battle Stats
+
+<ResponseField name="Stat_HPMax" type="int">
+  Gets or sets the maximum HP stat.
+</ResponseField>
+
+<ResponseField name="Stat_HPCurrent" type="int">
+  Gets or sets the current HP stat.
+</ResponseField>
+
+<ResponseField name="Stat_ATK" type="int">
+  Gets or sets the Attack stat.
+</ResponseField>
+
+<ResponseField name="Stat_DEF" type="int">
+  Gets or sets the Defense stat.
+</ResponseField>
+
+<ResponseField name="Stat_SPA" type="int">
+  Gets or sets the Special Attack stat.
+</ResponseField>
+
+<ResponseField name="Stat_SPD" type="int">
+  Gets or sets the Special Defense stat.
+</ResponseField>
+
+<ResponseField name="Stat_SPE" type="int">
+  Gets or sets the Speed stat.
+</ResponseField>
+
+<ResponseField name="Stat_Level" type="byte">
+  Gets or sets the level stored with party stats.
+</ResponseField>
+
+### Moves
+
+<ResponseField name="Move1" type="ushort">
+  Gets or sets the first move ID.
+</ResponseField>
+
+<ResponseField name="Move2" type="ushort">
+  Gets or sets the second move ID.
+</ResponseField>
+
+<ResponseField name="Move3" type="ushort">
+  Gets or sets the third move ID.
+</ResponseField>
+
+<ResponseField name="Move4" type="ushort">
+  Gets or sets the fourth move ID.
+</ResponseField>
+
+<ResponseField name="Move1_PP" type="int">
+  Gets or sets the PP for the first move.
+</ResponseField>
+
+<ResponseField name="Move2_PP" type="int">
+  Gets or sets the PP for the second move.
+</ResponseField>
+
+<ResponseField name="Move3_PP" type="int">
+  Gets or sets the PP for the third move.
+</ResponseField>
+
+<ResponseField name="Move4_PP" type="int">
+  Gets or sets the PP for the fourth move.
+</ResponseField>
+
+<ResponseField name="Move1_PPUps" type="int">
+  Gets or sets the PP Ups for the first move.
+</ResponseField>
+
+<ResponseField name="Move2_PPUps" type="int">
+  Gets or sets the PP Ups for the second move.
+</ResponseField>
+
+<ResponseField name="Move3_PPUps" type="int">
+  Gets or sets the PP Ups for the third move.
+</ResponseField>
+
+<ResponseField name="Move4_PPUps" type="int">
+  Gets or sets the PP Ups for the fourth move.
+</ResponseField>
+
+<ResponseField name="Moves" type="ushort[]">
+  Gets or sets all moves as an array.
+</ResponseField>
+
+<ResponseField name="MoveCount" type="int">
+  Gets the count of non-zero moves.
+</ResponseField>
+
+### Relearn Moves
+
+<ResponseField name="RelearnMove1" type="ushort">
+  Gets or sets the first relearn move ID.
+</ResponseField>
+
+<ResponseField name="RelearnMove2" type="ushort">
+  Gets or sets the second relearn move ID.
+</ResponseField>
+
+<ResponseField name="RelearnMove3" type="ushort">
+  Gets or sets the third relearn move ID.
+</ResponseField>
+
+<ResponseField name="RelearnMove4" type="ushort">
+  Gets or sets the fourth relearn move ID.
+</ResponseField>
+
+<ResponseField name="RelearnMoves" type="ushort[]">
+  Gets or sets all relearn moves as an array.
+</ResponseField>
+
+### Location and Date
+
+<ResponseField name="MetLocation" type="ushort">
+  Gets or sets the location where the Pokémon was met.
+</ResponseField>
+
+<ResponseField name="EggLocation" type="ushort">
+  Gets or sets the location where the Pokémon egg was received.
+</ResponseField>
+
+<ResponseField name="MetLevel" type="byte">
+  Gets or sets the level at which the Pokémon was met.
+</ResponseField>
+
+<ResponseField name="MetDate" type="DateOnly?">
+  Gets or sets the date the Pokémon was met. Returns null if date is invalid or not supported.
+</ResponseField>
+
+<ResponseField name="EggMetDate" type="DateOnly?">
+  Gets or sets the date the Pokémon was received as an egg. Returns null if date is invalid or not supported.
+</ResponseField>
+
+<ResponseField name="Ball" type="byte">
+  Gets or sets the Poké Ball the Pokémon was caught in.
+</ResponseField>
+
+### Special Properties
+
+<ResponseField name="IsEgg" type="bool">
+  Gets or sets whether the Pokémon is an egg.
+</ResponseField>
+
+<ResponseField name="IsShiny" type="bool">
+  Gets whether the Pokémon is shiny based on TSV/PSV comparison.
+</ResponseField>
+
+<ResponseField name="ShinyXor" type="ushort">
+  Gets the XOR value used for shiny determination (0 = square shiny, 1-15 = star shiny, 16+ = not shiny).
+</ResponseField>
+
+<ResponseField name="TSV" type="uint">
+  Gets the Trainer Shiny Value.
+</ResponseField>
+
+<ResponseField name="PSV" type="uint">
+  Gets the Pokémon Shiny Value.
+</ResponseField>
+
+<ResponseField name="FatefulEncounter" type="bool">
+  Gets or sets the fateful encounter flag.
+</ResponseField>
+
+<ResponseField name="Language" type="int">
+  Gets or sets the language ID.
+</ResponseField>
+
+<ResponseField name="Version" type="GameVersion">
+  Gets or sets the game version the Pokémon originated from.
+</ResponseField>
+
+### Pokerus
+
+<ResponseField name="PokerusStrain" type="int">
+  Gets or sets the Pokérus strain value.
+</ResponseField>
+
+<ResponseField name="PokerusDays" type="int">
+  Gets or sets the remaining days of Pokérus infection.
+</ResponseField>
+
+<ResponseField name="IsPokerusInfected" type="bool">
+  Gets or sets whether the Pokémon is infected with Pokérus.
+</ResponseField>
+
+<ResponseField name="IsPokerusCured" type="bool">
+  Gets or sets whether the Pokémon has been cured of Pokérus.
+</ResponseField>
+
+### Friendship and Contest
+
+<ResponseField name="CurrentFriendship" type="byte">
+  Gets or sets the current friendship value.
+</ResponseField>
+
+<ResponseField name="OriginalTrainerFriendship" type="byte">
+  Gets or sets the Original Trainer's friendship value.
+</ResponseField>
+
+<ResponseField name="Characteristic" type="int">
+  Gets the characteristic value based on IVs.
+</ResponseField>
+
+## Methods
+
+### IV/EV Manipulation
+
+<ParamField path="GetIVs(Span<int> value)" type="method">
+  Retrieves all IVs in the order: HP, ATK, DEF, SPE, SPA, SPD.
+  
+  **Parameters:**
+  - `value` (Span&lt;int&gt;): Span of length 6 to write IVs to
+</ParamField>
+
+<ParamField path="SetIVs(ReadOnlySpan<int> value)" type="method">
+  Sets all IVs in the order: HP, ATK, DEF, SPE, SPA, SPD.
+  
+  **Parameters:**
+  - `value` (ReadOnlySpan&lt;int&gt;): Span of length 6 containing IV values
+</ParamField>
+
+<ParamField path="SetIVs(uint iv32)" type="method">
+  Sets IVs from a 32-bit combined value.
+  
+  **Parameters:**
+  - `iv32` (uint): Combined IV value
+</ParamField>
+
+<ParamField path="GetIVs()" type="method">
+  Gets the combined 30-bit IV representation (IV32).
+  
+  **Returns:** uint - Combined IV value
+</ParamField>
+
+<ParamField path="GetEVs(Span<int> value)" type="method">
+  Retrieves all EVs in the order: HP, ATK, DEF, SPE, SPA, SPD.
+  
+  **Parameters:**
+  - `value` (Span&lt;int&gt;): Span of length 6 to write EVs to
+</ParamField>
+
+<ParamField path="SetEVs(ReadOnlySpan<int> value)" type="method">
+  Sets all EVs in the order: HP, ATK, DEF, SPE, SPA, SPD.
+  
+  **Parameters:**
+  - `value` (ReadOnlySpan&lt;int&gt;): Span of length 6 containing EV values
+</ParamField>
+
+<ParamField path="SetRandomIVs(int minFlawless = 0)" type="method">
+  Randomizes IVs with optional guaranteed perfect IVs.
+  
+  **Parameters:**
+  - `minFlawless` (int): Number of IVs to set to maximum (default: 0)
+</ParamField>
+
+### Move Manipulation
+
+<ParamField path="GetMoves(Span<ushort> value)" type="method">
+  Retrieves all move IDs.
+  
+  **Parameters:**
+  - `value` (Span&lt;ushort&gt;): Span to write move IDs to
+</ParamField>
+
+<ParamField path="SetMoves(ReadOnlySpan<ushort> value)" type="method">
+  Sets all move IDs and refreshes PP values.
+  
+  **Parameters:**
+  - `value` (ReadOnlySpan&lt;ushort&gt;): Span containing move IDs
+</ParamField>
+
+<ParamField path="HasMove(ushort move)" type="method">
+  Checks if the Pokémon has a specific move.
+  
+  **Parameters:**
+  - `move` (ushort): Move ID to check
+  
+  **Returns:** bool - True if the move is present
+</ParamField>
+
+<ParamField path="AddMove(ushort move, bool pushOut = true)" type="method">
+  Attempts to add a move to the moveset.
+  
+  **Parameters:**
+  - `move` (ushort): Move ID to add
+  - `pushOut` (bool): Whether to push out the first move if moveset is full
+  
+  **Returns:** bool - True if the move was added successfully
+</ParamField>
+
+<ParamField path="GetMove(int index)" type="method">
+  Gets the move at the specified index (0-3).
+  
+  **Parameters:**
+  - `index` (int): Move slot index
+  
+  **Returns:** ushort - Move ID
+</ParamField>
+
+<ParamField path="SetMove(int index, ushort value)" type="method">
+  Sets the move at the specified index (0-3).
+  
+  **Parameters:**
+  - `index` (int): Move slot index
+  - `value` (ushort): Move ID to set
+  
+  **Returns:** ushort - The move ID that was set
+</ParamField>
+
+<ParamField path="FixMoves()" type="method">
+  Reorders moves to put empty entries last and fixes PP values.
+</ParamField>
+
+<ParamField path="ClearInvalidMoves()" type="method">
+  Clears moves that are invalid for the current format.
+</ParamField>
+
+### Relearn Move Manipulation
+
+<ParamField path="GetRelearnMoves(Span<ushort> value)" type="method">
+  Retrieves all relearn move IDs.
+  
+  **Parameters:**
+  - `value` (Span&lt;ushort&gt;): Span to write relearn move IDs to
+</ParamField>
+
+<ParamField path="SetRelearnMoves(ReadOnlySpan<ushort> value)" type="method">
+  Sets all relearn move IDs.
+  
+  **Parameters:**
+  - `value` (ReadOnlySpan&lt;ushort&gt;): Span containing relearn move IDs
+</ParamField>
+
+<ParamField path="HasRelearnMove(ushort move)" type="method">
+  Checks if the Pokémon has a specific relearn move.
+  
+  **Parameters:**
+  - `move` (ushort): Move ID to check
+  
+  **Returns:** bool - True if the relearn move is present
+</ParamField>
+
+### Stats and HP
+
+<ParamField path="GetStats(IBaseStat p)" type="method">
+  Calculates battle stats based on base stats, IVs, EVs, and level.
+  
+  **Parameters:**
+  - `p` (IBaseStat): Base stat information
+  
+  **Returns:** ushort[] - Array of stats (HP, ATK, DEF, SPE, SPA, SPD)
+</ParamField>
+
+<ParamField path="LoadStats(IBaseStat p, Span<ushort> stats)" type="method">
+  Calculates and loads battle stats into the provided span.
+  
+  **Parameters:**
+  - `p` (IBaseStat): Base stat information
+  - `stats` (Span&lt;ushort&gt;): Span to write stats to
+</ParamField>
+
+<ParamField path="SetStats(ReadOnlySpan<ushort> stats)" type="method">
+  Applies calculated stats to the Pokémon.
+  
+  **Parameters:**
+  - `stats` (ReadOnlySpan&lt;ushort&gt;): Stats to apply
+</ParamField>
+
+<ParamField path="ResetPartyStats()" type="method">
+  Recalculates and resets all party stats to their proper values.
+</ParamField>
+
+<ParamField path="Heal()" type="method">
+  Fully heals the Pokémon by resetting HP and PP.
+</ParamField>
+
+<ParamField path="HealPP()" type="method">
+  Restores all PP to maximum based on current PP Ups.
+</ParamField>
+
+### PP Management
+
+<ParamField path="GetMovePP(ushort move, int ppUpCount)" type="method">
+  Calculates the maximum PP for a move considering PP Ups.
+  
+  **Parameters:**
+  - `move` (ushort): Move ID
+  - `ppUpCount` (int): Number of PP Ups applied
+  
+  **Returns:** int - Maximum PP
+</ParamField>
+
+<ParamField path="GetBasePP(ushort move)" type="method">
+  Gets the base PP of a move (without PP Ups).
+  
+  **Parameters:**
+  - `move` (ushort): Move ID
+  
+  **Returns:** int - Base PP
+</ParamField>
+
+### Shiny and PID Manipulation
+
+<ParamField path="SetShiny()" type="method">
+  Makes the Pokémon shiny by modifying its PID.
+</ParamField>
+
+<ParamField path="SetShinySID(Shiny shiny = Shiny.Random)" type="method">
+  Makes the Pokémon shiny by modifying its SID16.
+  
+  **Parameters:**
+  - `shiny` (Shiny): Type of shiny (Square, Star, or Random)
+</ParamField>
+
+<ParamField path="SetPIDGender(byte gender)" type="method">
+  Sets a valid PID for the specified gender.
+  
+  **Parameters:**
+  - `gender` (byte): Target gender
+</ParamField>
+
+<ParamField path="SetPIDNature(Nature nature)" type="method">
+  Sets a valid PID for the specified nature.
+  
+  **Parameters:**
+  - `nature` (Nature): Target nature
+</ParamField>
+
+<ParamField path="SetPIDUnown3(byte form)" type="method">
+  Sets a valid PID for Unown form (Generation 3).
+  
+  **Parameters:**
+  - `form` (byte): Target Unown form
+</ParamField>
+
+### Ability
+
+<ParamField path="RefreshAbility(int n)" type="method">
+  Applies the specified ability slot.
+  
+  **Parameters:**
+  - `n` (int): Ability slot (0 = ability 1, 1 = ability 2, 2 = hidden ability)
+</ParamField>
+
+### Validation
+
+<ParamField path="IsGenderValid()" type="method">
+  Checks if the current gender is valid for the species.
+  
+  **Returns:** bool - True if gender is valid
+</ParamField>
+
+<ParamField path="CanHoldItem(ReadOnlySpan<ushort> valid)" type="method">
+  Checks if the Pokémon can hold its current item.
+  
+  **Parameters:**
+  - `valid` (ReadOnlySpan&lt;ushort&gt;): List of valid item IDs
+  
+  **Returns:** bool - True if item can be held
+</ParamField>
+
+### Data Export
+
+<ParamField path="Clone()" type="method">
+  Creates a deep clone of the Pokémon.
+  
+  **Returns:** PKM - Cloned Pokémon object
+</ParamField>
+
+<ParamField path="RefreshChecksum()" type="method">
+  Updates the data checksum.
+</ParamField>
+
+<ParamField path="EncryptedPartyData" type="property">
+  Gets the encrypted party data as a byte array.
+  
+  **Returns:** byte[] - Encrypted party data
+</ParamField>
+
+<ParamField path="EncryptedBoxData" type="property">
+  Gets the encrypted box storage data as a byte array.
+  
+  **Returns:** byte[] - Encrypted box data
+</ParamField>
+
+<ParamField path="DecryptedPartyData" type="property">
+  Gets the decrypted party data as a byte array.
+  
+  **Returns:** byte[] - Decrypted party data
+</ParamField>
+
+<ParamField path="DecryptedBoxData" type="property">
+  Gets the decrypted box storage data as a byte array.
+  
+  **Returns:** byte[] - Decrypted box data
+</ParamField>
+
+## Usage Examples
+
+### Creating and Modifying a Pokémon
+
+```csharp
+using PKHeX.Core;
+
+// Assuming you have a PK9 instance (Generation 9 Pokémon)
+var pk = new PK9();
+
+// Set basic properties
+pk.Species = 25; // Pikachu
+pk.Form = 0;
+pk.Nickname = "Sparky";
+pk.CurrentLevel = 50;
+pk.Nature = Nature.Jolly;
+pk.Ability = 9; // Lightning Rod
+pk.Gender = 0; // Male
+
+// Set IVs
+Span<int> ivs = stackalloc int[6] { 31, 31, 31, 31, 31, 31 };
+pk.SetIVs(ivs);
+
+// Set EVs
+Span<int> evs = stackalloc int[6] { 0, 252, 0, 252, 0, 4 };
+pk.SetEVs(evs);
+
+// Set moves
+Span<ushort> moves = stackalloc ushort[4] { 85, 98, 97, 129 };
+pk.SetMoves(moves);
+
+// Make it shiny
+pk.SetShiny();
+
+// Recalculate stats
+pk.ResetPartyStats();
+
+Console.WriteLine($"Created {pk.Nickname} at level {pk.CurrentLevel}");
+Console.WriteLine($"Shiny: {pk.IsShiny}");
+```
+
+### Reading Pokémon Data
+
+```csharp
+// Read IV values
+Span<int> ivs = stackalloc int[6];
+pk.GetIVs(ivs);
+Console.WriteLine($"HP IV: {ivs[0]}");
+Console.WriteLine($"Attack IV: {ivs[1]}");
+Console.WriteLine($"Total IVs: {pk.IVTotal}");
+
+// Check moves
+if (pk.HasMove(85)) // Thunderbolt
+{
+    Console.WriteLine("Pokémon knows Thunderbolt");
+}
+
+// Get move at specific index
+ushort firstMove = pk.GetMove(0);
+Console.WriteLine($"First move ID: {firstMove}");
+```
+
+### Cloning and Data Export
+
+```csharp
+// Clone the Pokémon
+var clonedPk = pk.Clone();
+
+// Export as encrypted data
+byte[] partyData = pk.EncryptedPartyData;
+byte[] boxData = pk.EncryptedBoxData;
+
+// Save to file
+string fileName = pk.FileName; // e.g., "025 - Sparky - 0123456789AB.pk9"
+File.WriteAllBytes(fileName, pk.DecryptedBoxData);
+```
+
+### Validating Pokémon Data
+
+```csharp
+// Check if gender is valid
+if (!pk.IsGenderValid())
+{
+    Console.WriteLine("Invalid gender for this species!");
+}
+
+// Check shiny value
+if (pk.IsShiny)
+{
+    ushort shinyXor = pk.ShinyXor;
+    if (shinyXor == 0)
+        Console.WriteLine("Square Shiny!");
+    else
+        Console.WriteLine("Star Shiny!");
+}
+
+// Validate checksum
+if (pk.ChecksumValid)
+{
+    Console.WriteLine("Data integrity verified");
+}
+```
+
+### Working with Stats
+
+```csharp
+// Calculate stats based on personal info
+var stats = pk.GetStats(pk.PersonalInfo);
+Console.WriteLine($"HP: {stats[0]}");
+Console.WriteLine($"Attack: {stats[1]}");
+Console.WriteLine($"Defense: {stats[2]}");
+
+// Heal the Pokémon
+pk.Heal(); // Restores HP and PP
+
+// Check if party stats are present
+if (!pk.PartyStatsPresent)
+{
+    pk.ResetPartyStats();
+}
+```
+
+## See Also
+
+- [SaveFile Class](/api/savefile) - For working with save files
+- [LegalityAnalysis Class](/api/legality-analysis) - For validating Pokémon legality
+- [ShowdownSet Class](/api/showdown-set) - For importing/exporting Showdown format

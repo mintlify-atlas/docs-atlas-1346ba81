@@ -1,0 +1,444 @@
+---
+title: Verifiers
+description: Legality verification classes for PKM validation
+---
+
+PKHeX uses specialized verifier classes to validate every aspect of a Pokémon's legality. Each verifier focuses on a specific property or set of related properties.
+
+## Base Verifier Class
+
+### Verifier
+
+Abstract base class for all legality verifiers.
+
+```csharp
+public abstract class Verifier
+{
+    protected abstract CheckIdentifier Identifier { get; }
+    
+    public abstract void Verify(LegalityAnalysis data);
+    
+    // Helper methods for creating CheckResults
+    protected CheckResult GetValid(LegalityCheckResultCode msg);
+    protected CheckResult GetInvalid(LegalityCheckResultCode msg);
+    protected CheckResult Get(Severity s, LegalityCheckResultCode msg);
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Verifiers/Verifier.cs`
+
+### CheckResult
+
+Represents a single validation check result.
+
+```csharp
+public readonly struct CheckResult
+{
+    public Severity Severity { get; }           // Valid, Invalid, Fishy
+    public CheckIdentifier Identifier { get; }  // Which aspect was checked
+    public LegalityCheckResultCode Code { get; } // Result code
+}
+```
+
+## Core Verifiers
+
+### AbilityVerifier
+
+Validates ability values and ability numbers.
+
+```csharp
+public sealed class AbilityVerifier : Verifier
+{
+    protected override CheckIdentifier Identifier => CheckIdentifier.Ability;
+    
+    public override void Verify(LegalityAnalysis data)
+    {
+        var result = VerifyAbility(data);
+        data.AddLine(result);
+    }
+}
+```
+
+**Validation Checks:**
+- Ability is within valid range for species/form
+- AbilityNumber (1/2/4) matches ability slot
+- Ability matches encounter constraints
+- Ability Capsule usage validity (Gen 6+)
+- Ability Patch usage validity (Gen 8+)
+- Hidden ability availability
+- PID-ability correlation (Gen 3-5)
+
+**Example Validation:**
+
+```csharp
+// Gen 8 Hidden Ability validation
+if (pk.AbilityNumber == 4 && enc.Ability.CanBeHidden())
+    return VALID;
+
+// Ability Patch usage check
+if (pk.AbilityNumber == 4)
+{
+    if (AbilityChangeRules.IsAbilityPatchPossible(evoChainsAllGens))
+        return GetValid(AbilityPatchUsed);
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Verifiers/Ability/AbilityVerifier.cs`
+
+### BallVerifier
+
+Validates Poké Ball type.
+
+```csharp
+public sealed class BallVerifier : Verifier
+{
+    protected override CheckIdentifier Identifier => CheckIdentifier.Ball;
+    
+    public static BallVerificationResult VerifyBall(
+        IEncounterTemplate enc, 
+        Ball current, 
+        PKM pk
+    );
+}
+```
+
+**Validation Checks:**
+- Ball matches encounter type (wild, static, trade)
+- Ball inheritance rules (eggs, Gen 6+)
+- Beast Ball restrictions (Ultra Beasts)
+- Cherish/Master Ball restrictions
+- Dream Ball availability (Dream World)
+- Apricorn Ball restrictions (HGSS, Gen 7+)
+- Heavy Ball catch rate restrictions (Gen 7)
+
+**Ball Inheritance (Gen 6+):**
+
+```csharp
+private static BallVerificationResult VerifyBallEgg(IEncounterEgg enc, Ball ball, PKM pk)
+{
+    if (enc.Generation < 6)
+        return VerifyBallEquals(ball, Poke); // Must be Poké Ball
+    
+    return ball switch
+    {
+        Master => BadInheritMaster,   // Cannot inherit
+        Cherish => BadInheritCherish, // Cannot inherit
+        _ => VerifyBallInherited(enc, ball, pk),
+    };
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Verifiers/Ball/BallVerifier.cs`
+
+### MoveVerifiers
+
+Multiple verifiers handle move validation.
+
+#### LearnVerifier
+
+Validates current moves.
+
+```csharp
+internal static class LearnVerifier
+{
+    public static void Verify(
+        Span<MoveResult> result, 
+        PKM pk, 
+        IEncounterTemplate enc, 
+        EvolutionHistory history
+    );
+}
+```
+
+**Checks:**
+- Move can be learned by species/form
+- Move learned at valid level/method
+- No duplicate moves
+- No empty slots between moves
+- First move slot not empty
+- Form-exclusive moves (Hoopa, Kyurem)
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifier.cs`
+
+#### MovePPVerifier
+
+Validates PP and PP Ups.
+
+**Checks:**
+- PP is within valid range
+- PP Ups count is valid (0-3)
+- Current PP ≤ Max PP
+
+#### LearnVerifierEgg
+
+Validates egg moves and inheritance.
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifierEgg.cs`
+
+### LevelVerifier
+
+Validates level-related properties.
+
+**Checks:**
+- Current level ≥ met level
+- Level matches experience
+- Met level valid for encounter
+- Evolution level requirements
+
+### FormVerifier
+
+Validates form values.
+
+**Checks:**
+- Form exists for species
+- Form available in generation
+- Form changeable/unchangeable
+- Gender-form relationships (Meowstic, Indeedee)
+- Battle-only forms (Mega, Primal)
+- Time-based forms (Shaymin, Hoopa)
+
+### GenderVerifier
+
+Validates gender values.
+
+**Checks:**
+- Gender valid for species (genderless, male-only, female-only)
+- Gender matches PID (Gen 3-5)
+- Gender matches encounter constraint
+- Gender-locked evolutions
+
+### NicknameVerifier
+
+Validates nickname and flags.
+
+**Checks:**
+- Nickname length within limits
+- Invalid characters
+- Nickname language matches
+- Species name detection
+- Nicknamed flag correctness
+
+### TrainerVerifiers
+
+#### TrainerIDVerifier
+
+Validates TID/SID/TID16/SID16.
+
+**Checks:**
+- ID format for generation
+- ID matches encounter (trades, events)
+- Shiny-ID correlation
+
+#### TrainerNameVerifier
+
+Validates OT name.
+
+**Checks:**
+- Name length and characters
+- Language-specific restrictions
+- Special character bans
+
+### MemoryVerifier
+
+Validates Gen 6+ memories.
+
+**Checks:**
+- Memory intensity/feeling/variable valid
+- Memory available for context
+- OT/HT memory conflicts
+- Memory contradictions with encounter
+
+**Source:** `PKHeX.Core/Legality/Verifiers/MemoryVerifier.cs`
+
+### RibbonVerifiers
+
+Validate ribbon sets.
+
+**Checks:**
+- Ribbon available in generation
+- Ribbon requirements met
+- Ribbon conflicts
+- Event/competition ribbons
+
+### MarkVerifier
+
+Validates Gen 8+ marks.
+
+**Checks:**
+- Mark available for encounter type
+- Weather-dependent marks
+- Time-of-day marks
+- Fishing/curry marks
+- Ribbon marks (Tower, Master)
+
+**Source:** `PKHeX.Core/Legality/Verifiers/MarkVerifier.cs`
+
+## Game-Specific Verifiers
+
+### LegendsArceusVerifier
+
+Validates PLA-specific properties.
+
+**Checks:**
+- Height/Weight alpha values
+- Move shop moves
+- Grit items (EV equivalent)
+- Research level
+- Alpha/Noble flags
+
+**Source:** `PKHeX.Core/Legality/Verifiers/LegendsArceusVerifier.cs`
+
+### LegendsZAVerifier
+
+Validates Legends Z-A specific properties.
+
+**Source:** `PKHeX.Core/Legality/Verifiers/LegendsZAVerifier.cs`
+
+### CXDVerifier
+
+Validates Colosseum/XD properties.
+
+**Checks:**
+- Shadow Pokémon purification
+- XD exclusive properties
+
+**Source:** `PKHeX.Core/Legality/Verifiers/CXDVerifier.cs`
+
+## Statistical Verifiers
+
+### IndividualValueVerifier
+
+Validates IVs.
+
+**Checks:**
+- IVs in range (0-31)
+- Fixed IVs match encounter
+- Flawless IV count
+- Hyper Training validity
+
+### EffortValueVerifier
+
+Validates EVs.
+
+**Checks:**
+- EVs in range (0-252 per stat, 510 total for Gen 3+)
+- Gen 1/2 EV limits (0-65535)
+- EV reset items used
+
+### AwakenedValueVerifier
+
+Validates AVs (Let's Go).
+
+**Checks:**
+- AVs in range (0-200)
+- AVs only on LGPE format
+
+## Special Verifiers
+
+### PIDVerifier
+
+Validates PID (Personality ID).
+
+**Checks:**
+- Shiny-PID correlation
+- Nature-PID correlation
+- Gender-PID correlation (Gen 3-5)
+- Ability-PID correlation (Gen 3-5)
+- IV-PID correlation (Gen 3-4 methods)
+- Encryption constant relationships
+
+**Source:** `PKHeX.Core/Legality/Verifiers/PIDVerifier.cs`
+
+### TransferVerifier
+
+Validates cross-generation transfers.
+
+**Checks:**
+- Valid transfer path
+- Transfer-only moves removed
+- Format-specific restrictions
+- HOME tracker presence
+- GO origin validation
+
+**Source:** `PKHeX.Core/Legality/Verifiers/TransferVerifier.cs`
+
+### HistoryVerifier
+
+Validates handling history.
+
+**Checks:**
+- Current handler correctness
+- HT name/gender/language
+- Affection/friendship values
+- Contest stats
+
+**Source:** `PKHeX.Core/Legality/Verifiers/HistoryVerifier.cs`
+
+## Verification Flow
+
+```csharp
+public sealed class LegalityAnalysis
+{
+    public LegalityAnalysis(PKM pk)
+    {
+        // 1. Parse encounter type
+        EncounterFinder.FindVerifiedEncounter(pk);
+        
+        // 2. Build evolution chains
+        EvolutionChain.GetEvolutionChainsAllGens(pk, encounter);
+        
+        // 3. Run all verifiers
+        foreach (var verifier in Verifiers)
+            verifier.Verify(this);
+        
+        // 4. Compile results
+        Valid = !Results.Any(r => r.Severity == Severity.Invalid);
+    }
+}
+```
+
+## Custom Verification
+
+You can create custom verifiers:
+
+```csharp
+public class CustomVerifier : Verifier
+{
+    protected override CheckIdentifier Identifier => CheckIdentifier.Misc;
+    
+    public override void Verify(LegalityAnalysis data)
+    {
+        var pk = data.Entity;
+        
+        // Custom validation logic
+        if (SomeCondition(pk))
+            data.AddLine(GetInvalid(LegalityCheckResultCode.InvalidCustomCheck));
+        else
+            data.AddLine(GetValid(LegalityCheckResultCode.ValidCustomCheck));
+    }
+}
+```
+
+## Verifier Organization
+
+```
+Legality/Verifiers/
+├── Ability/
+│   ├── AbilityVerifier.cs
+│   ├── AbilityChangeRules.cs
+│   └── AbilityBreedLegality.cs
+├── Ball/
+│   ├── BallVerifier.cs
+│   ├── BallContext6.cs
+│   └── BallUseLegality.cs
+├── Egg/
+├── Misc/
+├── Ribbons/
+└── Verifier.cs
+```
+
+## Related Documentation
+
+- [Encounters](/api/legality/encounters) - Encounter matching
+- [Evolutions](/api/legality/evolutions) - Evolution chains
+- [Moves](/api/legality/moves) - Move validation

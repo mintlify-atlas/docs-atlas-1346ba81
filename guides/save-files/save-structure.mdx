@@ -1,0 +1,447 @@
+---
+title: "Understanding Save File Structure"
+description: "Learn how Pokémon save files are organized and structured across different generations"
+---
+
+## Overview
+
+Pokémon save files vary significantly across generations, from simple binary structures in Gen 1-2 to complex encrypted block systems in Gen 8-9. Understanding these structures helps you work effectively with save data.
+
+## Save File Generations
+
+### Generation 1-2 (GB/GBC)
+
+**Format:** Simple binary format with fixed offsets
+
+```csharp
+var sav1 = SaveUtil.GetSaveFile("red.sav") as SAV1;
+
+if (sav1 != null)
+{
+    // Gen 1 uses fixed memory offsets
+    Console.WriteLine($"Is Japanese: {sav1.Japanese}");
+    Console.WriteLine($"Is Yellow: {(sav1.Version == GameVersion.YW)}");
+    Console.WriteLine($"Virtual Console: {sav1.IsVirtualConsole}");
+}
+```
+
+**Key Features:**
+- Fixed size: 32KB (0x8000 bytes)
+- No encryption
+- Uses checksums for validation
+- Separate saves for Japanese/International versions
+
+### Generation 3 (GBA)
+
+**Format:** Sectored saves with checksums
+
+```csharp
+var sav3 = SaveUtil.GetSaveFile("emerald.sav") as SAV3;
+
+if (sav3 != null)
+{
+    // Gen 3 has two save slots (A and B)
+    Console.WriteLine($"Game: {sav3.Version}"); // RS, E, or FRLG
+    Console.WriteLine($"Security Key: {sav3.SecurityKey:X8}");
+}
+```
+
+**Key Features:**
+- Size: 128KB (two 64KB save slots)
+- 14 data sections per save
+- Save counter system (latest save wins)
+- Each section has its own checksum
+
+### Generation 4 (NDS)
+
+**Format:** Two alternating saves with footers
+
+```csharp
+var sav4 = SaveUtil.GetSaveFile("platinum.sav") as SAV4Pt;
+
+if (sav4 != null)
+{
+    Console.WriteLine($"Save Counter: {sav4.SaveCount}");
+    // Footer contains block sizes and checksums
+}
+```
+
+**Key Features:**
+- Size: 512KB (0x80000 bytes)
+- Two complete saves (A and B)
+- Block footer with size and timestamp
+- Different layouts for DP, Pt, and HGSS
+
+### Generation 5 (NDS)
+
+**Format:** Similar to Gen 4 with enhanced structure
+
+```csharp
+var sav5 = SaveUtil.GetSaveFile("white2.sav") as SAV5B2W2;
+
+if (sav5 != null)
+{
+    Console.WriteLine($"Game: {sav5.Version}");
+    // B2W2 has larger save size than BW
+}
+```
+
+**Key Features:**
+- Size: 512KB
+- BW: 0x24000 bytes per save
+- B2W2: 0x26000 bytes per save
+- Enhanced checksum system
+
+### Generation 6 (3DS)
+
+**Format:** Block-based with "BEEF" footer
+
+```csharp
+var sav6 = SaveUtil.GetSaveFile("omega_ruby.sav") as SAV6AO;
+
+if (sav6 != null)
+{
+    Console.WriteLine($"Trainer Name: {sav6.OT}");
+    Console.WriteLine($"Game Sync ID: {sav6.GameSyncID}");
+    Console.WriteLine($"Region: {sav6.Region}");
+    Console.WriteLine($"Country: {sav6.Country}");
+}
+```
+
+**Key Features:**
+- XY: 0x65600 bytes
+- ORAS: 0x76000 bytes
+- Multiple data blocks
+- BEEF footer marker (0x42454546)
+- No encryption but has signature
+
+### Generation 7 (3DS/Switch)
+
+**Format:** Block-based with BEEF footer
+
+```csharp
+var sav7 = SaveUtil.GetSaveFile("ultra_sun.sav") as SAV7USUM;
+
+if (sav7 != null)
+{
+    Console.WriteLine($"Trainer: {sav7.OT}");
+    Console.WriteLine($"Festival Plaza Rank: {sav7.FestaCoins}");
+}
+```
+
+**Key Features:**
+- SM: 0x6BE00 bytes
+- USUM: 0x6CC00 bytes
+- Let's Go: 0x100000 bytes
+- Block-based structure
+- Enhanced with more data blocks
+
+### Generation 8 (Switch)
+
+**Format:** Encrypted SCBlock (Save Block) system
+
+```csharp
+var sav8 = SaveUtil.GetSaveFile("main") as SAV8SWSH;
+
+if (sav8 != null)
+{
+    // Access individual blocks
+    var myStatus = sav8.MyStatus;
+    var items = sav8.Items;
+    var boxInfo = sav8.BoxInfo;
+    var zukan = sav8.Zukan;
+    
+    Console.WriteLine($"OT: {myStatus.OT}");
+    Console.WriteLine($"TID: {myStatus.TrainerTID7}");
+    Console.WriteLine($"Revision: {sav8.SaveRevisionString}");
+    
+    // Check DLC content
+    switch (sav8.SaveRevision)
+    {
+        case 0:
+            Console.WriteLine("Base game only");
+            break;
+        case 1:
+            Console.WriteLine("Has Isle of Armor DLC");
+            break;
+        case 2:
+            Console.WriteLine("Has Crown Tundra DLC");
+            break;
+    }
+}
+```
+
+**Key Features:**
+- Encrypted with AES
+- SCBlock (Save Block) system
+- Variable size based on game version and DLC
+- Each block has a unique key (uint32)
+- No traditional checksums (hash-based validation)
+
+### Generation 9 (Switch)
+
+**Format:** Enhanced SCBlock system
+
+```csharp
+var sav9 = SaveUtil.GetSaveFile("main") as SAV9SV;
+
+if (sav9 != null)
+{
+    // Access typed blocks
+    var myStatus = sav9.MyStatus;
+    var items = sav9.Items;
+    var boxInfo = sav9.BoxInfo;
+    var zukan = sav9.Zukan;
+    var fashion = sav9.PlayerFashion;
+    
+    Console.WriteLine($"Trainer: {myStatus.OT}");
+    Console.WriteLine($"Last Saved: {sav9.LastSaved.DisplayValue}");
+    Console.WriteLine($"Revision: {sav9.SaveRevisionString}");
+    
+    // Check DLC content
+    if (sav9.SaveRevision >= 1)
+        Console.WriteLine("Has Teal Mask DLC");
+    if (sav9.SaveRevision >= 2)
+        Console.WriteLine("Has Indigo Disk DLC");
+}
+```
+
+**Key Features:**
+- Similar to Gen 8 but enhanced
+- More SCBlocks for new features
+- Variable size (DLC adds blocks)
+- Hash-based validation
+- Supports Scarlet/Violet features
+
+## Working with SCBlocks (Gen 8-9)
+
+### Understanding SCBlocks
+
+SCBlocks are individual data containers identified by a unique key:
+
+```csharp
+if (sav is ISCBlockArray blockArray)
+{
+    // Access all blocks
+    var allBlocks = blockArray.AllBlocks;
+    
+    Console.WriteLine($"Total blocks: {allBlocks.Count}");
+    
+    // Iterate through blocks
+    foreach (var block in allBlocks)
+    {
+        Console.WriteLine($"Key: 0x{block.Key:X8}, Size: {block.Data.Length}");
+    }
+}
+```
+
+### Reading Block Values
+
+```csharp
+if (sav is SAV8SWSH swsh)
+{
+    // Get typed values from blocks
+    uint money = swsh.GetValue<uint>(0x00000001); // Example key
+    
+    // Access through typed accessors
+    var myStatus = swsh.MyStatus;
+    Console.WriteLine($"Money: {myStatus.Money}");
+}
+```
+
+### Block Types
+
+SCBlocks can store different data types:
+
+```csharp
+public void ExploreBlocks(SAV8SWSH sav)
+{
+    var accessor = sav.Accessor;
+    
+    // Boolean blocks (1 byte)
+    bool hasFlag = accessor.GetBlockValue<bool>(0x12345678);
+    
+    // Integer blocks (4 bytes)
+    uint count = accessor.GetBlockValue<uint>(0x23456789);
+    
+    // Object blocks (variable size)
+    byte[] objectData = accessor.GetBlock(0x34567890).Data.ToArray();
+}
+```
+
+## Box Storage Structure
+
+### Box Organization
+
+All generations store Pokémon in boxes:
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    Console.WriteLine($"Total Boxes: {sav.BoxCount}");
+    Console.WriteLine($"Slots per Box: {sav.BoxSlotCount}");
+    Console.WriteLine($"Total Storage: {sav.SlotCount} Pokémon");
+    
+    // Get box offset for manual access
+    int box0Offset = sav.GetBoxOffset(0);
+    int box0Slot5Offset = sav.GetBoxOffset(0) + (5 * sav.SIZE_BOXSLOT);
+}
+```
+
+### Party Structure
+
+```csharp
+Console.WriteLine($"Party Size: {sav.PartyCount}");
+
+for (int i = 0; i < sav.PartyCount; i++)
+{
+    var pokemon = sav.GetPartySlot(i);
+    Console.WriteLine($"Party {i + 1}: {pokemon.Species} Lv.{pokemon.CurrentLevel}");
+}
+```
+
+## Data Block Accessors
+
+Gen 8-9 games use typed block accessors:
+
+```csharp
+if (sav is SAV9SV sv)
+{
+    // Strongly-typed access to save data
+    var myStatus = sv.Blocks.MyStatus;
+    var items = sv.Blocks.Items;
+    var zukan = sv.Blocks.Zukan;
+    var boxLayout = sv.Blocks.BoxLayout;
+    var played = sv.Blocks.Played;
+    var config = sv.Blocks.Config;
+    
+    // Access nested data
+    Console.WriteLine($"Trainer: {myStatus.OT}");
+    Console.WriteLine($"Play Time: {played.PlayedHours}h {played.PlayedMinutes}m");
+    Console.WriteLine($"Boxes Unlocked: {boxLayout.BoxesUnlocked}");
+}
+```
+
+## Save File Metadata
+
+Every save file has metadata:
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    var meta = sav.Metadata;
+    
+    // File information
+    Console.WriteLine($"File Name: {meta.FileName}");
+    Console.WriteLine($"File Path: {meta.FilePath}");
+    
+    // Handler information (if special format)
+    if (meta.Handler != null)
+    {
+        Console.WriteLine($"Handler: {meta.Handler.GetType().Name}");
+    }
+    
+    // Exportability
+    Console.WriteLine($"Exportable: {sav.State.Exportable}");
+    Console.WriteLine($"Edited: {sav.State.Edited}");
+}
+```
+
+## Memory Layout Examples
+
+### Gen 1 Fixed Offsets
+
+```csharp
+var sav1 = new SAV1();
+
+// Gen 1 uses simple fixed offsets
+// Party: 0x2F2C (INT) or 0x2ED5 (JPN)
+// Current Box: 0x30C0 (INT) or 0x302D (JPN)
+// Checksum: Inverse sum validation
+```
+
+### Gen 3 Sector System
+
+```csharp
+var sav3 = new SAV3E();
+
+// Gen 3 divides data into 14 sectors
+// Each sector: 4KB (0x1000 bytes)
+// Sector IDs: 0-13
+// Each sector has:
+// - Data (0xFF4 bytes)
+// - ID (2 bytes)
+// - Checksum (2 bytes)
+// - Signature (4 bytes)
+// - Save Index (4 bytes)
+```
+
+### Gen 8 Block System
+
+```csharp
+var sav8 = new SAV8SWSH();
+
+// Gen 8 uses dynamic block system
+// Each block:
+// - Key: uint32 (identifier)
+// - Type: byte (bool, int, object, etc.)
+// - SubType: byte
+// - Data: variable length
+```
+
+## Encryption and Decryption
+
+Gen 8-9 saves are encrypted:
+
+```csharp
+// Loading automatically decrypts
+byte[] encryptedData = File.ReadAllBytes("main");
+var sav = SaveUtil.GetSaveFile(encryptedData); // Auto-decrypts
+
+// When saving, it automatically encrypts
+var exportedData = sav.Write();
+File.WriteAllBytes("main", exportedData.ToArray()); // Encrypted
+```
+
+<Warning>
+Never manually decrypt Gen 8-9 saves. Always use PKHeX.Core's built-in methods.
+</Warning>
+
+## Checksum Validation
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    if (sav.ChecksumsValid)
+    {
+        Console.WriteLine("✓ Checksums valid");
+    }
+    else
+    {
+        Console.WriteLine("✗ Invalid checksums");
+        Console.WriteLine(sav.ChecksumInfo);
+    }
+}
+```
+
+<Note>
+Gen 8-9 don't use traditional checksums. They use hash-based validation instead.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Modifying Data" icon="pen-to-square" href="/guides/save-files/modifying-data">
+    Learn how to modify save file data safely
+  </Card>
+  
+  <Card title="Exporting Saves" icon="floppy-disk" href="/guides/save-files/exporting-saves">
+    Export and write modified save files
+  </Card>
+</CardGroup>

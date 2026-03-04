@@ -1,0 +1,265 @@
+---
+title: Creating Pokémon
+description: Learn how to create new Pokémon entities in PKHeX.Core
+---
+
+## Overview
+
+PKHeX.Core provides generation-specific classes for creating Pokémon entities. Each generation has its own format (e.g., `PK9` for Gen 9, `PK8` for Gen 8) that inherits from the base `PKM` class.
+
+## Creating a New Pokémon
+
+### Basic Creation
+
+To create a new Pokémon, instantiate the appropriate generation-specific class:
+
+```csharp
+using PKHeX.Core;
+
+// Create a new Gen 9 Pokémon (Scarlet/Violet)
+var pk9 = new PK9();
+
+// Create a new Gen 8 Pokémon (Sword/Shield)
+var pk8 = new PK8();
+
+// Create a new Gen 7 Pokémon (Sun/Moon)
+var pk7 = new PK7();
+```
+
+### Setting Basic Properties
+
+Once you've created a Pokémon entity, you can set its core properties:
+
+```csharp
+var pk = new PK9
+{
+    Species = (ushort)Species.Pikachu,
+    Form = 0,
+    Gender = 0, // Male
+    Nature = Nature.Adamant,
+    Ability = (int)Ability.Static,
+    CurrentLevel = 50,
+    Ball = (byte)Ball.Poke,
+    IsNicknamed = true,
+    Nickname = "Sparky",
+    OriginalTrainerName = "Ash",
+    OriginalTrainerGender = 0, // Male
+    Language = (int)LanguageID.English
+};
+```
+
+<Note>
+The `Species` enum contains constants for all Pokémon species. Use proper casting to `ushort` when assigning species values.
+</Note>
+
+### Setting IVs and EVs
+
+Individual Values (IVs) and Effort Values (EVs) control a Pokémon's stats:
+
+```csharp
+// Set perfect IVs (31 in all stats)
+pk.IV_HP = 31;
+pk.IV_ATK = 31;
+pk.IV_DEF = 31;
+pk.IV_SPA = 31;
+pk.IV_SPD = 31;
+pk.IV_SPE = 31;
+
+// Set EVs (max 252 per stat, 510 total)
+pk.EV_HP = 252;
+pk.EV_ATK = 252;
+pk.EV_SPE = 6;
+```
+
+### Setting Moves
+
+Each Pokémon can have up to 4 moves:
+
+```csharp
+pk.Move1 = (ushort)Move.Thunderbolt;
+pk.Move2 = (ushort)Move.IronTail;
+pk.Move3 = (ushort)Move.QuickAttack;
+pk.Move4 = (ushort)Move.ElectroBall;
+
+// Set PP (Power Points)
+pk.Move1_PP = pk.GetMovePP(pk.Move1, pk.Move1_PPUps);
+pk.Move2_PP = pk.GetMovePP(pk.Move2, pk.Move2_PPUps);
+pk.Move3_PP = pk.GetMovePP(pk.Move3, pk.Move3_PPUps);
+pk.Move4_PP = pk.GetMovePP(pk.Move4, pk.Move4_PPUps);
+```
+
+### Setting Trainer Information
+
+Configure the Original Trainer (OT) details:
+
+```csharp
+pk.TID16 = 12345; // Trainer ID
+pk.SID16 = 54321; // Secret ID
+pk.OriginalTrainerName = "Red";
+pk.OriginalTrainerGender = 0; // Male
+pk.CurrentFriendship = 255;
+```
+
+### Generating Unique Identifiers
+
+Every Pokémon needs unique identifiers:
+
+```csharp
+// Generate Encryption Constant
+pk.EncryptionConstant = Util.Rand32();
+
+// Generate PID (Personality ID)
+pk.PID = Util.Rand32();
+
+// For shiny Pokémon, use:
+pk.SetShiny();
+
+// Or force a specific shiny type:
+pk.SetShinySID(Shiny.AlwaysStar); // Square shiny
+pk.SetShinySID(Shiny.AlwaysSquare); // Star shiny
+```
+
+## Generation-Specific Features
+
+### Gen 9 (Scarlet/Violet) - Tera Types
+
+```csharp
+var pk9 = new PK9
+{
+    Species = (ushort)Species.Pikachu,
+    TeraTypeOriginal = MoveType.Electric,
+    TeraTypeOverride = MoveType.Water, // Change Tera Type
+    ObedienceLevel = 50
+};
+```
+
+### Gen 8 (Sword/Shield) - Dynamax
+
+```csharp
+var pk8 = new PK8
+{
+    Species = (ushort)Species.Charizard,
+    DynamaxLevel = 10,
+    CanGigantamax = true // For Gigantamax-capable Pokémon
+};
+```
+
+### Gen 7 (Sun/Moon) - Hyper Training
+
+```csharp
+var pk7 = new PK7
+{
+    Species = (ushort)Species.Mew,
+    CurrentLevel = 100, // Must be level 100
+    HyperTrainFlags = 0x3F // Hyper train all stats
+};
+```
+
+## Finalizing the Pokémon
+
+Before using or saving a Pokémon, you must refresh its checksum:
+
+```csharp
+// Refresh checksum to validate the data
+pk.RefreshChecksum();
+
+// Verify the Pokémon is valid
+if (pk.Valid)
+{
+    Console.WriteLine("Pokémon created successfully!");
+}
+```
+
+<Warning>
+Always call `RefreshChecksum()` after modifying a Pokémon's properties to ensure data integrity.
+</Warning>
+
+## Creating from Blank Templates
+
+PKHeX provides a utility to create blank Pokémon for any format:
+
+```csharp
+using PKHeX.Core;
+
+// Create a blank PK9
+var blank = EntityBlank.GetBlank<PK9>();
+
+// Or create from type
+var blankFromType = EntityBlank.GetBlank(typeof(PK9));
+```
+
+## Complete Example
+
+Here's a complete example creating a competitive Pokémon:
+
+```csharp
+using PKHeX.Core;
+
+public PKM CreateCompetitivePokemon()
+{
+    var pk = new PK9
+    {
+        // Basic Info
+        Species = (ushort)Species.Garchomp,
+        Form = 0,
+        Gender = 0,
+        Nature = Nature.Jolly,
+        StatNature = Nature.Jolly,
+        Ability = (int)Ability.RoughSkin,
+        CurrentLevel = 50,
+        Ball = (byte)Ball.Poke,
+        
+        // IVs (Perfect)
+        IV_HP = 31,
+        IV_ATK = 31,
+        IV_DEF = 31,
+        IV_SPA = 31,
+        IV_SPD = 31,
+        IV_SPE = 31,
+        
+        // EVs (Optimized spread)
+        EV_ATK = 252,
+        EV_SPE = 252,
+        EV_HP = 6,
+        
+        // Moves
+        Move1 = (ushort)Move.Earthquake,
+        Move2 = (ushort)Move.DragonClaw,
+        Move3 = (ushort)Move.StoneEdge,
+        Move4 = (ushort)Move.SwordsDance,
+        
+        // Trainer Info
+        OriginalTrainerName = "Player",
+        OriginalTrainerGender = 0,
+        TID16 = 12345,
+        SID16 = 54321,
+        Language = (int)LanguageID.English,
+        CurrentFriendship = 255,
+        
+        // Gen 9 Features
+        TeraTypeOriginal = MoveType.Ground,
+        ObedienceLevel = 50
+    };
+    
+    // Generate unique identifiers
+    pk.EncryptionConstant = Util.Rand32();
+    pk.PID = Util.Rand32();
+    
+    // Set PP for all moves
+    pk.Move1_PP = pk.GetMovePP(pk.Move1, 0);
+    pk.Move2_PP = pk.GetMovePP(pk.Move2, 0);
+    pk.Move3_PP = pk.GetMovePP(pk.Move3, 0);
+    pk.Move4_PP = pk.GetMovePP(pk.Move4, 0);
+    
+    // Finalize
+    pk.RefreshChecksum();
+    
+    return pk;
+}
+```
+
+## Next Steps
+
+- Learn about [Editing Properties](/guides/pokemon/editing-properties) for more advanced modifications
+- See [Showdown Format](/guides/pokemon/showdown-format) for importing team data
+- Explore [Converting Formats](/guides/pokemon/converting-formats) to transfer between generations

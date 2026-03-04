@@ -1,0 +1,427 @@
+---
+title: Generation 4 & 5 Save Files
+description: SAV4 and SAV5 save file implementations for DS games
+---
+
+# Generation 4 & 5 Save Files
+
+Save file implementations for Nintendo DS Pokemon games.
+
+## SAV4 (Abstract Base)
+
+Base class for Diamond, Pearl, Platinum, HeartGold, and SoulSilver save files.
+
+### Class Definition
+
+```csharp
+public abstract class SAV4 : SaveFile, IEventFlag37, IDaycareStorage, 
+    IDaycareRandomState<uint>, IDaycareExperience, IDaycareEggState, IMysteryGiftStorageProvider
+```
+
+**Source:** `PKHeX.Core/Saves/SAV4.cs`
+
+### Storage Structure
+
+Gen 4 uses a dual-buffer system:
+
+| Buffer | Size | Contents |
+|--------|------|----------|
+| **General** | Game-specific | Trainer info, party, items, event data |
+| **Storage** | Game-specific | All PC boxes |
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 18 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 2 |
+
+### Save File Layout
+
+```csharp
+private const int PartitionSize = 0x40000; // 256 KB per partition
+// Save data has 2 partitions (primary and backup)
+// Each partition contains General and Storage buffers
+```
+
+### Key Properties
+
+#### Trainer Information
+
+```csharp
+public override string OT { get; set; }
+public override uint ID32 { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public abstract string Rival { get; set; }
+public abstract Span<byte> RivalTrash { get; set; }
+public int Badges { get; set; }
+public int Sprite { get; set; }
+public uint Coin { get; set; } // Max: 50,000
+```
+
+#### Position Coordinates
+
+```csharp
+public abstract int M { get; set; } // Map
+public abstract int X { get; set; }
+public abstract int Y { get; set; }
+public abstract int X2 { get; set; } // Secondary position
+public abstract int Y2 { get; set; }
+public abstract int Z { get; set; }
+```
+
+#### Adventure Info
+
+```csharp
+public override uint SecondsToStart { get; set; }
+public override uint SecondsToFame { get; set; } // Hall of Fame time
+```
+
+#### Geonet
+
+```csharp
+public bool GeonetGlobalFlag { get; set; }
+public int Country { get; set; }
+public int Region { get; set; }
+```
+
+### Event System
+
+```csharp
+public int EventFlagCount { get; } // 2,912 flags
+public int EventWorkCount { get; } // Calculated from offsets
+public bool GetEventFlag(int flagNumber)
+public void SetEventFlag(int flagNumber, bool value)
+public ushort GetWork(int index)
+public void SetWork(int index, ushort value)
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public Memory<byte> GetDaycareSlot(int slot)
+public uint GetDaycareEXP(int index)
+public void SetDaycareEXP(int index, uint value)
+public bool IsDaycareOccupied(int index)
+public void SetDaycareOccupied(int index, bool occupied)
+public bool IsEggAvailable { get; set; }
+
+// Egg generation
+public uint Seed { get; set; } // ARNG seed for egg PID
+public byte DaycareStepCounter { get; set; }
+```
+
+### Pokedex
+
+```csharp
+public abstract Zukan4 Dex { get; }
+public int DexUpgraded { get; set; } // 0-4 upgrade stages
+```
+
+### Battle Features
+
+```csharp
+public abstract int BP { get; set; } // Battle Points
+public abstract uint BattleTowerSeed { get; set; }
+public abstract BattleFrontierFacility4 MaxFacility { get; }
+
+// Battle Videos
+public BattleVideo4? GetBattleVideo(int index) // 0-3
+public Hall4? GetHall() // Battle Hall data
+```
+
+### Fashion & Accessories
+
+#### Seals
+
+```csharp
+public const byte SealMaxCount = 99;
+public Span<byte> GetSealCase()
+public void SetSealCase(ReadOnlySpan<byte> value)
+public byte GetSealCount(Seal4 id)
+public void SetSealCount(Seal4 id, byte count)
+```
+
+#### Accessories
+
+```csharp
+public byte GetAccessoryOwnedCount(Accessory4 accessory)
+public void SetAccessoryOwnedCount(Accessory4 accessory, byte count)
+```
+
+#### Backdrops
+
+```csharp
+public byte GetBackdropPosition(Backdrop4 backdrop)
+public bool GetBackdropUnlocked(Backdrop4 backdrop)
+public void RemoveBackdrop(Backdrop4 backdrop)
+public void SetBackdropPosition(Backdrop4 backdrop, byte position)
+```
+
+### Mystery Gift
+
+```csharp
+public abstract MysteryBlock4 Mystery { get; }
+public bool IsMysteryGiftUnlocked { get; set; }
+```
+
+### Swarm System
+
+```csharp
+public abstract uint SwarmSeed { get; set; }
+public abstract uint SwarmMaxCountModulo { get; }
+public uint SwarmIndex { get; set; } // Current swarm Pokemon
+```
+
+### Groups (DPPt/HGSS)
+
+```csharp
+public Group4 GroupPlayer { get; } // Player's created group
+public Group4 GroupActive { get; } // Currently active group
+public Group4 GroupOther1 { get; } // Imported group 1
+public Group4 GroupOther2 { get; } // Imported group 2  
+public Group4 GroupOther3 { get; } // Imported group 3
+public Group4 GroupOther4 { get; } // Imported group 4
+```
+
+### Mail
+
+```csharp
+public int GetMailOffset(int index)
+public byte[] GetMailData(int ofs)
+public Mail4 GetMail(int mailIndex)
+```
+
+### Checksums
+
+```csharp
+public const uint MAGIC_JAPAN_INTL = 0x20060623;
+public const uint MAGIC_KOREAN = 0x20070903;
+public uint Magic { get; set; }
+```
+
+Gen 4 uses CRC16-CCITT checksums for validation:
+
+```csharp
+protected override void SetChecksums()
+{
+    WriteUInt16LittleEndian(General[^2..], CalcBlockChecksum(General));
+    WriteUInt16LittleEndian(Storage[^2..], CalcBlockChecksum(Storage));
+    // Also updates backup buffers and extra blocks
+}
+```
+
+---
+
+## SAV5 (Abstract Base)
+
+Base class for Black, White, Black 2, and White 2 save files.
+
+### Class Definition
+
+```csharp
+public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlagProvider37, IBoxDetailName, 
+    IBoxDetailWallpaper, IDaycareRandomState<ulong>, IDaycareStorage, IDaycareExperience, 
+    IDaycareEggState, IMysteryGiftStorageProvider
+```
+
+**Source:** `PKHeX.Core/Saves/SAV5.cs`
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 24 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 2 |
+
+### Block System
+
+Gen 5 uses a block-based structure:
+
+```csharp
+public abstract IReadOnlyList<BlockInfo> AllBlocks { get; }
+```
+
+### Key Properties
+
+#### Trainer Information
+
+```csharp
+public override string OT { get; set; }
+public override uint ID32 { get; set; }
+public int Country { get; set; }
+public int Region { get; set; }
+public override int Language { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+```
+
+#### Time Tracking
+
+```csharp
+public override int PlayedHours { get; set; }
+public override int PlayedMinutes { get; set; }
+public override int PlayedSeconds { get; set; }
+public override uint SecondsToStart { get; set; }
+public override uint SecondsToFame { get; set; }
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public Memory<byte> GetDaycareSlot(int index)
+public bool IsDaycareOccupied(int slot)
+public uint GetDaycareEXP(int slot)
+public void SetDaycareEXP(int slot, uint value)
+public void SetDaycareOccupied(int slot, bool occupied)
+public bool IsEggAvailable { get; set; }
+public ulong Seed { get; set; } // 64-bit LCRNG seed
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public override int BoxesUnlocked { get; set; }
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+```
+
+### Block Accessors
+
+```csharp
+public abstract MyItem Items { get; }
+public abstract Zukan5 Zukan { get; }
+public abstract Misc5 Misc { get; }
+public abstract MysteryBlock5 Mystery { get; }
+public abstract Chatter5 Chatter { get; }
+public abstract Daycare5 Daycare { get; }
+public abstract BoxLayout5 BoxLayout { get; }
+public abstract PlayerData5 PlayerData { get; }
+public abstract PlayerPosition5 PlayerPosition { get; }
+public abstract BattleSubwayPlay5 BattleSubwayPlay { get; }
+public abstract BattleSubway5 BattleSubway { get; }
+public abstract Entralink5 Entralink { get; }
+public abstract Musical5 Musical { get; }
+public abstract Encount5 Encount { get; }
+public abstract UnityTower5 UnityTower { get; }
+public abstract SkinInfo5 SkinInfo { get; }
+public abstract EventWork5 EventWork { get; }
+public abstract BattleBox5 BattleBox { get; }
+public abstract EntreeForest EntreeForest { get; }
+public abstract GlobalLink5 GlobalLink { get; }
+public abstract WhiteBlack5 Forest { get; }
+public abstract GTS5 GTS { get; }
+public abstract AdventureInfo5 AdventureInfo { get; }
+public abstract Record5 Records { get; }
+```
+
+### External Data
+
+Gen 5 stores additional data outside the main save:
+
+```csharp
+// Battle Videos
+public Memory<byte> BattleVideoNative { get; }
+public Memory<byte> BattleVideoDownload1 { get; }
+public Memory<byte> BattleVideoDownload2 { get; }
+public Memory<byte> BattleVideoDownload3 { get; }
+public void SetBattleVideo(int index, ReadOnlySpan<byte> data, ushort count = 1)
+
+// C-Gear
+public Memory<byte> CGearSkinData { get; }
+public void SetCGearSkin(ReadOnlySpan<byte> data, ushort count = 1)
+
+// Pokedex Skin
+public Memory<byte> PokedexSkinData { get; }
+public bool IsAvailablePokedexSkin { get; set; }
+public void SetPokeDexSkin(ReadOnlySpan<byte> data, ushort count = 1)
+
+// Musical
+public Memory<byte> MusicalDownloadData { get; }
+public abstract int MusicalDownloadSize { get; }
+public void SetMusical(ReadOnlySpan<byte> data, ushort count = 1)
+
+// Battle Test
+public Memory<byte> BattleTest { get; }
+public void SetBattleTest(ReadOnlySpan<byte> data, ushort count = 1)
+
+// Hall of Fame
+public const int HallOfFameSize = 0x155C;
+public Memory<byte> HallOfFame1 { get; }
+public Memory<byte> HallOfFame2 { get; }
+public void SetHallOfFame(ReadOnlySpan<byte> data, ushort count = 1)
+
+// 3DS Link Data
+private const int Link3DSDataSize = 0x400;
+public Memory<byte> Link1Data { get; }
+public Memory<byte> Link2Data { get; }
+public void SetLink1Data(ReadOnlySpan<byte> data)
+public void SetLink2Data(ReadOnlySpan<byte> data)
+```
+
+### Mail
+
+```csharp
+public static int GetMailOffset(int index)
+public byte[] GetMailData(int offset)
+public MailDetail GetMail(int mailIndex)
+```
+
+### Checksums
+
+Gen 5 uses CRC16-CCITT checksums with special footer structure:
+
+```csharp
+protected ushort WriteExtSection(ReadOnlySpan<byte> data, int offset, int size, ushort count)
+{
+    // Writes data with checksum and footer
+    ushort chk = Checksums.CRC16_CCITT(data);
+    // Updates tail section with count and checksum
+    // Updates footer with metadata
+    return chk;
+}
+```
+
+## Technical Notes
+
+### Save Detection
+
+Both Gen 4 and Gen 5 use footer comparison to determine the active save:
+
+```csharp
+private static int GetActiveBlock(ReadOnlySpan<byte> data, int begin, int length)
+{
+    int offset = begin + length - 0x14; // Footer location
+    return SAV4BlockDetection.CompareFooters(data, offset, offset + PartitionSize);
+}
+```
+
+### String Encoding
+
+- **Gen 4**: UTF-16 with custom terminator handling
+- **Gen 5**: UTF-16 with custom terminator handling
+
+Both use `\uffff` as string terminator.
+
+### PKM Handlers
+
+Gen 4 and Gen 5 introduced the handler system:
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    var pk4 = (PK4)pk;
+    pk4.UpdateHandler(this); // Updates OT/HT data
+    pk.RefreshChecksum();
+}
+```

@@ -1,0 +1,340 @@
+---
+title: PK9 and PA9 Classes
+description: Generation 9 PKM format documentation
+---
+
+# PK9 and PA9 Classes
+
+Generation 9 introduces the latest Pokémon data formats: PK9 for Scarlet/Violet and PA9 for Z-A (Legends Z-A).
+
+## PK9 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK9.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 328 bytes (0x148) |
+| SIZE_PARTY | 344 bytes (0x158) |
+| Generation | 9 |
+| Context | EntityContext.Gen9 |
+| Games | Scarlet, Violet |
+
+### Key Features
+
+#### Terastallization
+
+Gen 9's main battle mechanic:
+
+```csharp
+public byte TeraTypeOriginal { get; set; }
+public byte TeraTypeOverride { get; set; }
+```
+
+- **TeraTypeOriginal**: Natural Tera Type (based on species)
+- **TeraTypeOverride**: Changed Tera Type (0x19 = no override)
+
+#### Obedience Level
+
+```csharp
+public byte ObedienceLevel { get; set; }
+```
+
+Tracks the level at which the Pokémon will obey, based on badges.
+
+#### Scale System
+
+```csharp
+public byte Scale { get; set; }
+public byte HeightScalar { get; set; }
+public byte WeightScalar { get; set; }
+```
+
+Expanded size variation system from PLA.
+
+### Data Structure
+
+Same block structure as PK8:
+- 4 blocks of 80 bytes each
+- 8-byte header
+- Total: 328 bytes stored, 344 party
+
+### Important Properties
+
+#### Tech Records Continued
+
+```csharp
+public bool GetMoveRecordFlag(int index) { get; set; }
+```
+
+Gen 9 continues using the Tech Record system.
+
+#### Battle Version
+
+```csharp
+public byte BattleVersion { get; set; }
+```
+
+Tracks which game version the Pokémon last battled in.
+
+#### HOME Tracker
+
+```csharp
+public ulong Tracker { get; set; }
+```
+
+Unique identifier for Pokémon HOME.
+
+### Tera Type System
+
+```csharp
+public MoveType TeraType
+{
+    get
+    {
+        var val = TeraTypeOverride;
+        if (val != 19) // 19 = no override
+            return (MoveType)val;
+        return (MoveType)TeraTypeOriginal;
+    }
+}
+```
+
+The effective Tera Type is the override if set, otherwise the original.
+
+### Relearn Move Management
+
+```csharp
+public void FixRelearn()
+{
+    // Compresses relearn moves to remove gaps
+    // If move 4 exists but move 3 is empty, shifts down
+}
+```
+
+Ensures relearn moves are properly ordered without gaps.
+
+---
+
+## PA9 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PA9.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 328 bytes (0x148) |
+| SIZE_PARTY | 344 bytes (0x158) |
+| Generation | 9 |
+| Context | EntityContext.Gen9a |
+| Games | Legends: Z-A |
+
+### Key Features
+
+#### Alpha Pokémon (Returning)
+
+```csharp
+public bool IsAlpha { get; set; }
+```
+
+Alpha Pokémon return from Legends: Arceus.
+
+#### Plus Records
+
+New learning system:
+
+```csharp
+public interface IPlusRecord
+{
+    bool GetPlusRecordFlag(int index) { get; set; }
+}
+```
+
+Extended version of Tech Records for Z-A.
+
+### Data Structure
+
+Same size as PK9 but with different internal structure:
+- Modified block layout for Alpha support
+- Plus Record flags replace some PK9 features
+- Different PersonalInfo table (PersonalTable.ZA)
+
+### Differences from PK9
+
+#### Added Features
+
+- Alpha Pokémon
+- Plus Records system
+- Possibly modified battle mechanics
+
+#### Removed Features
+
+- Terastallization (may not be in Z-A)
+- Some SV-specific marks/ribbons
+
+#### Modified Features
+
+- Uses PersonalInfo9ZA instead of PersonalInfo9SV
+- Different move pools and availability
+
+## Comparison Table
+
+| Feature | PK9 | PA9 |
+|---------|-----|-----|
+| Size (Stored) | 328 bytes | 328 bytes |
+| Size (Party) | 344 bytes | 344 bytes |
+| Block Size | 80 bytes | 80 bytes |
+| Terastallization | Yes | TBD |
+| Alpha | No | Yes |
+| Plus Records | No | Yes |
+| Tech Records | Yes | Yes |
+| Scale System | Yes | Yes |
+| Obedience Level | Yes | Yes |
+| Contest Stats | No | TBD |
+
+## Code Examples
+
+### Creating a PK9 with Tera Type
+
+```csharp
+var pk9 = new PK9
+{
+    Species = 908, // Meowscarada
+    Form = 0,
+    CurrentLevel = 50,
+    TeraTypeOriginal = (byte)MoveType.Grass,
+    TeraTypeOverride = (byte)MoveType.Dark, // Changed Tera Type
+    ObedienceLevel = 50,
+    Ball = 1, // Poke Ball
+};
+pk9.SetRandomIVs(6);
+pk9.RefreshChecksum();
+```
+
+### Checking Tera Type
+
+```csharp
+var pk9 = new PK9(data);
+
+if (pk9.TeraTypeOverride != 19)
+{
+    Console.WriteLine($"Tera Type changed to: {(MoveType)pk9.TeraTypeOverride}");
+}
+else
+{
+    Console.WriteLine($"Original Tera Type: {(MoveType)pk9.TeraTypeOriginal}");
+}
+```
+
+### Creating an Alpha PA9
+
+```csharp
+var pa9 = new PA9
+{
+    Species = 901, // Ursaluna (Blood Moon?)
+    CurrentLevel = 70,
+    IsAlpha = true,
+    HeightScalar = 255,
+    WeightScalar = 255,
+};
+pa9.SetRandomIVs(6);
+pa9.RefreshChecksum();
+```
+
+### Setting Scale Values
+
+```csharp
+var pk9 = new PK9
+{
+    Species = 25, // Pikachu
+    Scale = 128,      // Average scale
+    HeightScalar = 150,
+    WeightScalar = 100,
+};
+```
+
+### Fixing Relearn Moves
+
+```csharp
+var pk9 = new PK9(data);
+
+// Before: [Move1, 0, 0, Move4]
+pk9.FixRelearn();
+// After:  [Move1, Move4, 0, 0]
+```
+
+### Handler Update System
+
+```csharp
+public void UpdateHandler(ITrainerInfo tr)
+{
+    if (IsEgg)
+    {
+        // Eggs get link trade data if traded
+        const ushort location = Locations.LinkTrade6;
+        if (MetLocation != location && !BelongsTo(tr))
+        {
+            var date = EncounterDate.GetDateSwitch();
+            SetLinkTradeEgg(date.Day, date.Month, date.Year, location);
+        }
+        return;
+    }
+
+    // Update handler if OT doesn't match
+    if (!TradeOT(tr))
+        TradeHT(tr);
+}
+```
+
+## New Gen 9 Features
+
+### Unhatched Eggs
+
+```csharp
+public bool IsUnhatchedEgg => Version == 0 && IsEgg;
+```
+
+Eggs that haven't been given a version yet.
+
+### Enhanced Shiny Calculation
+
+```csharp
+public override uint PSV => ((PID >> 16) ^ (PID & 0xFFFF)) >> 4;
+public override uint TSV => (uint)(TID16 ^ SID16) >> 4;
+```
+
+Gen 9 uses 4-bit shift (1/4096 shiny rate) instead of 3-bit.
+
+### Characteristic
+
+```csharp
+public override int Characteristic => 
+    EntityCharacteristic.GetCharacteristicInit0(EncryptionConstant, IV32);
+```
+
+Based on Encryption Constant and IVs.
+
+## Migration from Gen 8
+
+When migrating from Gen 8 to Gen 9:
+
+1. Encryption Constant preserved
+2. PID preserved
+3. IVs preserved
+4. Tera Type assigned based on species
+5. Obedience Level set based on current level
+6. Scale values generated
+7. Tech Records preserved
+8. Ribbons preserved where applicable
+
+## See Also
+
+- [Format Overview](/api/formats/overview)
+- [PK8, PA8, PB8 Classes](/api/formats/pk8-pa8-pb8)
+- [Tera Type System](/api/mechanics/terastallization)

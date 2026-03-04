@@ -1,0 +1,532 @@
+---
+title: "GameCube Memory Card Files"
+description: "Working with GameCube memory card raw images and save files"
+icon: "memory"
+---
+
+## Overview
+
+GameCube memory card files (`.raw`, `.gci`) contain Pokémon save data for Colosseum, XD: Gale of Darkness, and Pokémon Box Ruby & Sapphire. PKHeX provides the `SAV3GCMemoryCard` class to handle memory card metadata, directories, and save data extraction.
+
+## Memory Card Structure
+
+A GameCube memory card is organized into blocks:
+
+- **Block Size**: 8 KB (0x2000 bytes)
+- **Block 0**: Header (contains card size and encoding info)
+- **Block 1**: Directory (primary)
+- **Block 2**: Directory (backup)
+- **Block 3**: Block Allocation Table (primary)
+- **Block 4**: Block Allocation Table (backup)
+- **Blocks 5+**: File data
+
+### Memory Card Sizes
+
+Valid memory card sizes range from 512 KB to 64 MB and must be powers of 2:
+
+- 512 KB (59 blocks)
+- 1 MB (123 blocks)
+- 2 MB (251 blocks) 
+- 4 MB (507 blocks)
+- 8 MB (1019 blocks)
+- 16 MB (2043 blocks)
+
+## Loading Memory Cards
+
+```csharp
+using PKHeX.Core;
+
+// Load raw memory card image
+var cardData = File.ReadAllBytes("MemoryCardA.raw");
+
+// Verify it's a valid memory card
+if (!SAV3GCMemoryCard.IsMemoryCardSize(cardData))
+{
+    Console.WriteLine("Invalid memory card file!");
+    return;
+}
+
+// Create memory card object
+var memoryCard = new SAV3GCMemoryCard(cardData);
+
+// Get the card state
+var state = memoryCard.GetMemoryCardState();
+Console.WriteLine($"Memory card state: {state}");
+```
+
+## Memory Card States
+
+The `GetMemoryCardState()` method returns the card's status:
+
+```csharp
+var state = memoryCard.GetMemoryCardState();
+
+switch (state)
+{
+    case MemoryCardSaveStatus.SaveGameCOLO:
+        Console.WriteLine("Contains Pokémon Colosseum save");
+        break;
+        
+    case MemoryCardSaveStatus.SaveGameXD:
+        Console.WriteLine("Contains Pokémon XD save");
+        break;
+        
+    case MemoryCardSaveStatus.SaveGameRSBOX:
+        Console.WriteLine("Contains Pokémon Box R&S save");
+        break;
+        
+    case MemoryCardSaveStatus.MultipleSaveGame:
+        Console.WriteLine("Contains multiple Pokémon saves");
+        // Need to select which one to work with
+        break;
+        
+    case MemoryCardSaveStatus.NoPkmSaveGame:
+        Console.WriteLine("No Pokémon saves found");
+        break;
+        
+    case MemoryCardSaveStatus.DuplicateCOLO:
+    case MemoryCardSaveStatus.DuplicateXD:
+    case MemoryCardSaveStatus.DuplicateRSBOX:
+        Console.WriteLine("Error: Duplicate save files detected");
+        break;
+        
+    case MemoryCardSaveStatus.Invalid:
+        Console.WriteLine("Invalid or corrupted memory card");
+        break;
+}
+```
+
+## Detecting Save Files
+
+```csharp
+// Check which Pokémon games are present
+if (memoryCard.HasCOLO)
+    Console.WriteLine("✓ Pokémon Colosseum");
+    
+if (memoryCard.HasXD)
+    Console.WriteLine("✓ Pokémon XD: Gale of Darkness");
+    
+if (memoryCard.HasRSBOX)
+    Console.WriteLine("✓ Pokémon Box Ruby & Sapphire");
+
+// Get total count of Pokémon saves
+Console.WriteLine($"Total Pokémon saves: {memoryCard.SaveGameCount}");
+
+// Check selected game
+var selectedGame = memoryCard.SelectedGameVersion;
+Console.WriteLine($"Currently selected: {selectedGame}");
+```
+
+## Working with Save Data
+
+### Selecting a Save File
+
+```csharp
+// If multiple saves exist, select which one to work with
+if (memoryCard.SaveGameCount > 1)
+{
+    // Select Colosseum
+    memoryCard.SelectSaveGame(SaveFileType.Colosseum);
+    
+    // Or select XD
+    memoryCard.SelectSaveGame(SaveFileType.XD);
+    
+    // Or select Pokémon Box
+    memoryCard.SelectSaveGame(SaveFileType.RSBox);
+}
+```
+
+### Reading Save Data
+
+```csharp
+// Read the currently selected save
+var saveData = memoryCard.ReadSaveGameData();
+
+if (saveData.Length == 0)
+{
+    Console.WriteLine("No save selected or save empty");
+}
+else
+{
+    Console.WriteLine($"Save data size: {saveData.Length:N0} bytes");
+    
+    // Save data is still encrypted - need to decrypt based on game type
+    var mutableData = saveData.ToArray();
+    
+    if (memoryCard.SelectedGameVersion == SaveFileType.Colosseum)
+    {
+        // Colosseum decryption
+        var (slotIdx, counter) = ColoCrypto.DetectLatest(mutableData);
+        var slot = ColoCrypto.GetSlot(mutableData, slotIdx);
+        ColoCrypto.Decrypt(slot.Span);
+        
+        Console.WriteLine($"Decrypted Colosseum slot {slotIdx} (counter: {counter})");
+    }
+    else if (memoryCard.SelectedGameVersion == SaveFileType.XD)
+    {
+        // XD decryption  
+        var (slotIdx, counter) = XDCrypto.DetectLatest(mutableData);
+        var slot = XDCrypto.GetSlot(mutableData, slotIdx);
+        XDCrypto.DecryptSlot(slot.Span);
+        
+        Console.WriteLine($"Decrypted XD slot {slotIdx} (counter: {counter})");
+    }
+    
+    // Now mutableData contains decrypted save data
+}
+```
+
+### Writing Save Data
+
+```csharp
+// After modifying save data, write it back
+// Make sure to encrypt and checksum first!
+
+if (memoryCard.SelectedGameVersion == SaveFileType.Colosseum)
+{
+    var (slotIdx, _) = ColoCrypto.DetectLatest(saveData.ToArray());
+    var slot = ColoCrypto.GetSlot(saveData, slotIdx);
+    
+    // Decrypt, modify, then re-encrypt
+    ColoCrypto.Decrypt(slot.Span);
+    // ... modifications ...
+    ColoCrypto.SetChecksums(slot.Span);
+    ColoCrypto.Encrypt(slot.Span);
+}
+else if (memoryCard.SelectedGameVersion == SaveFileType.XD)
+{
+    var (slotIdx, _) = XDCrypto.DetectLatest(saveData.ToArray());
+    var slot = XDCrypto.GetSlot(saveData, slotIdx);
+    
+    XDCrypto.DecryptSlot(slot.Span);
+    // ... modifications ...
+    XDCrypto.SetChecksums(slot.Span, 0);
+    XDCrypto.EncryptSlot(slot.Span);
+}
+
+// Write back to memory card
+memoryCard.WriteSaveGameData(saveData.ToArray().AsSpan());
+
+// Save the entire memory card
+File.WriteAllBytes("MemoryCardA_modified.raw", memoryCard.Data.ToArray());
+```
+
+## Directory Entries
+
+Memory cards store up to 127 file entries in the directory:
+
+```csharp
+using PKHeX.Core;
+
+const int MaxEntries = 127;
+
+// Iterate through all directory entries
+for (int i = 0; i < MaxEntries; i++)
+{
+    var entry = memoryCard.GetDEntry(i);
+    
+    if (entry.IsEmpty)
+        continue; // Skip empty entries
+        
+    Console.WriteLine($"\nEntry {i}:");
+    Console.WriteLine($"  Game Code: {entry.GameCode}");
+    Console.WriteLine($"  File Name: {entry.FileName}");
+    Console.WriteLine($"  Comment: {entry.Comment}");
+    Console.WriteLine($"  Size: {entry.SaveDataLength:N0} bytes");
+    Console.WriteLine($"  Block Count: {entry.BlockCount}");
+    Console.WriteLine($"  First Block: {entry.FirstBlock}");
+    Console.WriteLine($"  Offset: 0x{entry.SaveDataOffset:X}");
+    
+    // Check if this is a Pokémon save
+    var version = SaveHandlerGCI.GetGameCode(entry.GameCode);
+    if (version != GameVersion.Unknown)
+    {
+        Console.WriteLine($"  → Pokémon Game: {version}");
+    }
+}
+```
+
+### DEntry Properties
+
+```csharp
+var entry = memoryCard.GetDEntry(index);
+
+// File identification
+string gameCode = entry.GameCode;           // 4-character game code
+string fileName = entry.FileName;           // Internal file name
+string comment = entry.Comment;             // File comment/description
+
+// File location and size
+int blockCount = entry.BlockCount;          // Number of 8KB blocks used
+int firstBlock = entry.FirstBlock;          // Starting block number
+int saveDataLength = entry.SaveDataLength;  // Total size in bytes
+int saveDataOffset = entry.SaveDataOffset;  // Offset in memory card
+
+// Timestamps
+DateTime modifiedTime = entry.ModificationTime;
+DateTime createdTime = entry.CreationTime;
+
+// Validation
+bool isEmpty = entry.IsEmpty;               // No file in this slot
+bool isValid = entry.IsStartInvalid;        // Invalid start block
+```
+
+## Game Code Detection
+
+```csharp
+using PKHeX.Core;
+
+// Game codes for Pokémon games:
+// GPKE = Colosseum (NTSC)
+// GPKP = Colosseum (PAL)
+// GXXE = XD (NTSC)
+// GXXP = XD (PAL)
+// GPXE = Pokémon Box R&S (NTSC)
+// GPXP = Pokémon Box R&S (PAL)
+
+string gameCode = entry.GameCode;
+var version = SaveHandlerGCI.GetGameCode(gameCode);
+
+switch (version)
+{
+    case GameVersion.COLO:
+        Console.WriteLine("This is a Colosseum save");
+        break;
+    case GameVersion.XD:
+        Console.WriteLine("This is an XD save");
+        break;
+    case GameVersion.RSBOX:
+        Console.WriteLine("This is a Pokémon Box save");
+        break;
+    default:
+        Console.WriteLine("Not a Pokémon save");
+        break;
+}
+```
+
+## Memory Card Metadata
+
+### Header Information
+
+```csharp
+// Card encoding (affects text encoding)
+var encoding = memoryCard.EncodingType;
+Console.WriteLine($"Text encoding: {encoding.EncodingName}");
+
+// Japanese cards use Shift-JIS (code page 932)
+// Western cards use Windows-1252 (code page 1252)
+if (encoding.CodePage == 932)
+    Console.WriteLine("Japanese memory card");
+else if (encoding.CodePage == 1252)
+    Console.WriteLine("Western memory card");
+```
+
+### Checksums
+
+Memory cards use checksums to verify data integrity:
+
+```csharp
+// The GetMemoryCardState method automatically:
+// - Verifies header checksum
+// - Verifies directory checksums (primary and backup)
+// - Verifies block allocation table checksums
+// - Restores from backup if primary is corrupted
+
+var state = memoryCard.GetMemoryCardState();
+
+if (state == MemoryCardSaveStatus.Invalid)
+{
+    Console.WriteLine("Memory card checksums are corrupted");
+    Console.WriteLine("Cannot recover - backups also failed");
+}
+```
+
+## Practical Examples
+
+### Extract All Save Files
+
+```csharp
+void ExtractAllSaves(string memoryCardPath, string outputDir)
+{
+    var cardData = File.ReadAllBytes(memoryCardPath);
+    var memCard = new SAV3GCMemoryCard(cardData);
+    
+    var state = memCard.GetMemoryCardState();
+    if (state == MemoryCardSaveStatus.Invalid)
+    {
+        Console.WriteLine("Invalid memory card");
+        return;
+    }
+    
+    Directory.CreateDirectory(outputDir);
+    
+    // Extract each Pokémon save found
+    if (memCard.HasCOLO)
+    {
+        memCard.SelectSaveGame(SaveFileType.Colosseum);
+        var data = memCard.ReadSaveGameData();
+        File.WriteAllBytes(Path.Combine(outputDir, "COLO.gci"), data.ToArray());
+        Console.WriteLine("✓ Extracted Colosseum save");
+    }
+    
+    if (memCard.HasXD)
+    {
+        memCard.SelectSaveGame(SaveFileType.XD);
+        var data = memCard.ReadSaveGameData();
+        File.WriteAllBytes(Path.Combine(outputDir, "XD.gci"), data.ToArray());
+        Console.WriteLine("✓ Extracted XD save");
+    }
+    
+    if (memCard.HasRSBOX)
+    {
+        memCard.SelectSaveGame(SaveFileType.RSBox);
+        var data = memCard.ReadSaveGameData();
+        File.WriteAllBytes(Path.Combine(outputDir, "RSBOX.gci"), data.ToArray());
+        Console.WriteLine("✓ Extracted Pokémon Box save");
+    }
+}
+```
+
+### Inject Save into Memory Card
+
+```csharp
+void InjectSave(string memoryCardPath, string savePath, SaveFileType saveType)
+{
+    var cardData = File.ReadAllBytes(memoryCardPath);
+    var memCard = new SAV3GCMemoryCard(cardData);
+    
+    // Verify card is valid
+    var state = memCard.GetMemoryCardState();
+    if (state == MemoryCardSaveStatus.Invalid)
+        throw new Exception("Invalid memory card");
+    
+    // Select the appropriate save slot
+    memCard.SelectSaveGame(saveType);
+    
+    // Load and write new save data
+    var newSaveData = File.ReadAllBytes(savePath);
+    memCard.WriteSaveGameData(newSaveData);
+    
+    // Save modified memory card
+    File.WriteAllBytes(memoryCardPath, memCard.Data.ToArray());
+    
+    Console.WriteLine($"✓ Injected {saveType} save into memory card");
+}
+```
+
+### List All Files on Card
+
+```csharp
+void ListMemoryCardFiles(string memoryCardPath)
+{
+    var cardData = File.ReadAllBytes(memoryCardPath);
+    var memCard = new SAV3GCMemoryCard(cardData);
+    
+    Console.WriteLine("Memory Card Contents:");
+    Console.WriteLine("=====================\n");
+    
+    for (int i = 0; i < 127; i++)
+    {
+        var entry = memCard.GetDEntry(i);
+        if (entry.IsEmpty)
+            continue;
+            
+        Console.WriteLine($"[{i:000}] {entry.GameCode} - {entry.FileName}");
+        Console.WriteLine($"      Size: {entry.SaveDataLength:N0} bytes ({entry.BlockCount} blocks)");
+        Console.WriteLine($"      Modified: {entry.ModificationTime}");
+        
+        var version = SaveHandlerGCI.GetGameCode(entry.GameCode);
+        if (version != GameVersion.Unknown)
+            Console.WriteLine($"      Type: {version}");
+            
+        Console.WriteLine();
+    }
+}
+```
+
+### Complete Workflow Example
+
+```csharp
+void ModifyColosseumSave(string memoryCardPath)
+{
+    // 1. Load memory card
+    var cardData = File.ReadAllBytes(memoryCardPath);
+    var memCard = new SAV3GCMemoryCard(cardData);
+    
+    // 2. Verify and select Colosseum
+    var state = memCard.GetMemoryCardState();
+    if (!memCard.HasCOLO)
+    {
+        Console.WriteLine("No Colosseum save found");
+        return;
+    }
+    memCard.SelectSaveGame(SaveFileType.Colosseum);
+    
+    // 3. Extract save data
+    var saveData = memCard.ReadSaveGameData().ToArray();
+    
+    // 4. Decrypt
+    var (slotIdx, counter) = ColoCrypto.DetectLatest(saveData);
+    var slot = ColoCrypto.GetSlot(saveData, slotIdx);
+    ColoCrypto.Decrypt(slot.Span);
+    
+    // 5. Modify save data
+    // ... your modifications here ...
+    
+    // 6. Re-encrypt
+    ColoCrypto.SetChecksums(slot.Span);
+    ColoCrypto.Encrypt(slot.Span);
+    
+    // 7. Write back to memory card
+    memCard.WriteSaveGameData(saveData);
+    
+    // 8. Save memory card
+    File.WriteAllBytes(memoryCardPath + ".modified", memCard.Data.ToArray());
+    
+    Console.WriteLine("✓ Save modified successfully");
+}
+```
+
+## Constants Reference
+
+```csharp
+// Block size
+SAV3GCMemoryCard.BLOCK_SIZE = 0x2000;  // 8 KB
+
+// Directory entry size
+const int DENTRY_SIZE = 0x40;  // 64 bytes
+
+// Max directory entries
+const int NumEntries_Directory = 127;
+
+// Control blocks
+Header_Block = 0;
+Directory_Block = 1;
+DirectoryBackup_Block = 2;
+BlockAlloc_Block = 3;
+BlockAllocBackup_Block = 4;
+```
+
+## Best Practices
+
+<Warning>
+  Always backup memory card files before making modifications. Corruption can result in loss of all save data on the card.
+</Warning>
+
+<Tip>
+  Use `GetMemoryCardState()` to automatically verify checksums and restore from backups if needed.
+</Tip>
+
+<Note>
+  Memory cards use big-endian byte order. PKHeX handles this automatically, but be aware if working with raw data.
+</Note>
+
+<Note>
+  The `WriteSaveGameData` method automatically updates the modification timestamp in the directory entry.
+</Note>
+
+## Related Resources
+
+- [Save File Encryption](/guides/advanced/encryption)
+- [Colosseum/XD Save Files](/api/gamecube-saves)
+- [PKM Data Structures](/api/pkm-structure)

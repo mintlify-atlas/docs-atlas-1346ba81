@@ -1,0 +1,260 @@
+---
+title: PKHeX Documentation
+description: Welcome to the comprehensive documentation for PKHeX, the powerful C# library for Pokémon save file editing and validation
+mode: custom
+---
+
+<div className="relative overflow-hidden bg-gradient-to-br from-[#EE1515] via-[#3B4CCA] to-[#0f1117] dark:from-[#EE1515] dark:via-[#3B4CCA] dark:to-[#0f1117] py-20">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          PKHeX Documentation
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 max-w-2xl mb-8">
+          A comprehensive C# library for editing and validating Pokémon save files and entity data across all generations.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-[#FFCB05] hover:bg-[#e6b705] rounded-lg transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="/api/pkm"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white border-2 border-white/30 bg-white/10 hover:bg-white/20 hover:border-white/50 rounded-lg transition-colors"
+          >
+            API Reference
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Quick start
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get up and running with PKHeX.Core in minutes
+  </p>
+
+  <Steps>
+    <Step title="Install the package">
+      Add PKHeX.Core to your project via NuGet:
+
+      ```bash
+      dotnet add package PKHeX.Core
+      ```
+
+      Or using the Visual Studio Package Manager:
+
+      ```powershell
+      Install-Package PKHeX.Core
+      ```
+    </Step>
+
+    <Step title="Load a save file">
+      Use `SaveUtil.GetVariantSAV` to detect and load any Pokémon save file:
+
+      ```csharp
+      using PKHeX.Core;
+
+      byte[] data = File.ReadAllBytes("path/to/save.sav");
+      var sav = SaveUtil.GetVariantSAV(data);
+
+      if (sav == null)
+      {
+          Console.WriteLine("Invalid save file!");
+          return;
+      }
+
+      Console.WriteLine($"Loaded: {sav.GetType().Name}");
+      Console.WriteLine($"OT: {sav.OT}");
+      Console.WriteLine($"Game: {sav.Version}");
+      ```
+    </Step>
+
+    <Step title="Access and modify Pokémon">
+      Read Pokémon from boxes and modify their properties:
+
+      ```csharp
+      // Get the first Pokémon from Box 1
+      var pk = sav.GetBoxSlotAtIndex(0, 0);
+
+      Console.WriteLine($"Species: {pk.Species}");
+      Console.WriteLine($"Level: {pk.CurrentLevel}");
+      Console.WriteLine($"Nickname: {pk.Nickname}");
+
+      // Modify the Pokémon
+      pk.CurrentLevel = 100;
+      pk.Nickname = "CHARIZARD";
+
+      // Write it back to the save
+      sav.SetBoxSlotAtIndex(pk, 0, 0);
+      ```
+    </Step>
+
+    <Step title="Validate and export">
+      Check legality and save your changes:
+
+      ```csharp
+      // Validate the Pokémon
+      var la = new LegalityAnalysis(pk);
+      Console.WriteLine($"Legal: {la.Valid}");
+
+      if (!la.Valid)
+      {
+          foreach (var result in la.Results)
+          {
+              Console.WriteLine($"- {result.Comment}");
+          }
+      }
+
+      // Export the modified save
+      byte[] exportData = sav.Write().ToArray();
+      File.WriteAllBytes("path/to/modified.sav", exportData);
+      ```
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Key features
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to work with Pokémon save data
+  </p>
+
+  <CardGroup cols={2}>
+    <Card title="Multi-generation support" icon="gamepad" href="/concepts/game-versions">
+      Work with save files from all Pokémon generations (1-9), including GameCube titles
+    </Card>
+    <Card title="Legality analysis" icon="shield-check" href="/guides/legality/overview">
+      Comprehensive validation system to verify Pokémon legality and flag impossible data
+    </Card>
+    <Card title="Showdown integration" icon="code" href="/guides/pokemon/showdown-format">
+      Import and export Pokémon Showdown text format for easy team sharing
+    </Card>
+    <Card title="Format conversion" icon="arrows-rotate" href="/guides/pokemon/converting-formats">
+      Transfer Pokémon between generations with automatic format conversion
+    </Card>
+    <Card title="Mystery Gift support" icon="gift" href="/guides/advanced/mystery-gifts">
+      Handle event distribution files and convert them to usable Pokémon entities
+    </Card>
+    <Card title="Type-safe API" icon="code-branch" href="/api/pkm">
+      Strongly-typed C# classes for every Pokémon format and save file structure
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Explore by topic
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Deep dive into specific areas of the library
+  </p>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <a
+      href="/concepts/save-files"
+      className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 hover:border-[#EE1515] dark:hover:border-[#EE1515] overflow-hidden no-underline transition-colors bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+          Save files
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Understand save file structures, encryption, and how to access game data across different formats
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-[#EE1515] dark:group-hover:text-[#EE1515] transition-colors">
+          Learn more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/concepts/pokemon-entities"
+      className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 hover:border-[#EE1515] dark:hover:border-[#EE1515] overflow-hidden no-underline transition-colors bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+          Pokémon entities
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Work with the PKM class hierarchy and understand how different generations store Pokémon data
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-[#EE1515] dark:group-hover:text-[#EE1515] transition-colors">
+          Learn more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/concepts/legality-analysis"
+      className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 hover:border-[#EE1515] dark:hover:border-[#EE1515] overflow-hidden no-underline transition-colors bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+          Legality checking
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Validate Pokémon against game rules, encounter data, and move legality constraints
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-[#EE1515] dark:group-hover:text-[#EE1515] transition-colors">
+          Learn more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/guides/advanced/mystery-gifts"
+      className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 hover:border-[#EE1515] dark:hover:border-[#EE1515] overflow-hidden no-underline transition-colors bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+          Advanced features
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Mystery Gifts, ribbons, encryption, memory cards, and other specialized functionality
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-[#EE1515] dark:group-hover:text-[#EE1515] transition-colors">
+          Learn more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl border dark:border-[#27272a] border-gray-200 bg-white dark:bg-[#1a1d27] p-8 sm:p-12">
+    <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+      Ready to start building?
+    </h2>
+    <p className="text-base text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
+      Install PKHeX.Core from NuGet and start working with Pokémon save data in your C# projects today.
+    </p>
+    <a
+      href="/installation"
+      className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-[#EE1515] hover:bg-[#d41313] rounded-lg transition-colors"
+    >
+      View installation guide
+    </a>
+  </div>
+</div>

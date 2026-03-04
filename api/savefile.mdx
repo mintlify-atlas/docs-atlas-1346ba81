@@ -1,0 +1,805 @@
+---
+title: SaveFile Class
+description: Base class for all save file formats in PKHeX
+---
+
+## Overview
+
+The `SaveFile` class is the abstract base class for all Pokémon save file formats. It provides a unified interface for accessing and manipulating save data across all generations.
+
+**Namespace:** `PKHeX.Core`
+
+**Inheritance:** `Object` → `SaveFile`
+
+**Implements:** `ITrainerInfo`, `IGameValueLimit`, `IStringConverter`, `ITrainerID32`
+
+## Constructors
+
+<ParamField path="SaveFile(Memory<byte> data, bool exportable = true)" type="constructor">
+  Creates a SaveFile instance from existing byte data.
+  
+  **Parameters:**
+  - `data` (Memory&lt;byte&gt;): Raw save file data
+  - `exportable` (bool): Whether the save can be exported (default: true)
+</ParamField>
+
+<ParamField path="SaveFile(int size = 0)" type="constructor">
+  Creates a SaveFile instance with a new byte array.
+  
+  **Parameters:**
+  - `size` (int): Size of the byte array (default: 0 for empty array)
+</ParamField>
+
+## Core Properties
+
+### Data Storage
+
+<ResponseField name="Buffer" type="Memory<byte>">
+  The raw save file data buffer.
+</ResponseField>
+
+<ResponseField name="Data" type="Span<byte>">
+  Gets the raw byte data span for the save file.
+</ResponseField>
+
+<ResponseField name="State" type="SaveFileState">
+  Gets the current state of the save file (edited status, exportable status).
+</ResponseField>
+
+<ResponseField name="Metadata" type="SaveFileMetadata">
+  Gets the metadata associated with this save file.
+</ResponseField>
+
+### File Information
+
+<ResponseField name="Extension" type="string">
+  Gets the file extension for this save file format.
+</ResponseField>
+
+<ResponseField name="Generation" type="byte">
+  Gets the generation this save file belongs to.
+</ResponseField>
+
+<ResponseField name="Context" type="EntityContext">
+  Gets the entity context for this save file.
+</ResponseField>
+
+<ResponseField name="Version" type="GameVersion">
+  Gets or sets the game version.
+</ResponseField>
+
+### Trainer Information
+
+<ResponseField name="OT" type="string">
+  Gets or sets the Original Trainer name.
+</ResponseField>
+
+<ResponseField name="Gender" type="byte">
+  Gets or sets the trainer's gender (0 = Male, 1 = Female).
+</ResponseField>
+
+<ResponseField name="Language" type="int">
+  Gets or sets the language ID of the save file.
+</ResponseField>
+
+<ResponseField name="TID16" type="ushort">
+  Gets or sets the 16-bit Trainer ID.
+</ResponseField>
+
+<ResponseField name="SID16" type="ushort">
+  Gets or sets the 16-bit Secret ID.
+</ResponseField>
+
+<ResponseField name="ID32" type="uint">
+  Gets or sets the combined 32-bit Trainer ID.
+</ResponseField>
+
+<ResponseField name="DisplayTID" type="uint">
+  Gets or sets the Trainer ID as displayed in-game.
+</ResponseField>
+
+<ResponseField name="DisplaySID" type="uint">
+  Gets or sets the Secret ID as displayed in-game.
+</ResponseField>
+
+### Game Progress
+
+<ResponseField name="PlayedHours" type="int">
+  Gets or sets the hours played.
+</ResponseField>
+
+<ResponseField name="PlayedMinutes" type="int">
+  Gets or sets the minutes played.
+</ResponseField>
+
+<ResponseField name="PlayedSeconds" type="int">
+  Gets or sets the seconds played.
+</ResponseField>
+
+<ResponseField name="PlayTimeString" type="string">
+  Gets the formatted play time string (HH:MM:SS).
+</ResponseField>
+
+<ResponseField name="SecondsToStart" type="uint">
+  Gets or sets the seconds until start time.
+</ResponseField>
+
+<ResponseField name="SecondsToFame" type="uint">
+  Gets or sets the seconds to Hall of Fame entry.
+</ResponseField>
+
+<ResponseField name="Money" type="uint">
+  Gets or sets the trainer's money.
+</ResponseField>
+
+<ResponseField name="MaxMoney" type="int">
+  Gets the maximum money value (default: 9,999,999).
+</ResponseField>
+
+<ResponseField name="MaxCoins" type="int">
+  Gets the maximum coins value (default: 9,999).
+</ResponseField>
+
+### Storage Properties
+
+<ResponseField name="BoxCount" type="int">
+  Gets the total number of boxes in the PC.
+</ResponseField>
+
+<ResponseField name="BoxSlotCount" type="int">
+  Gets the number of slots per box (typically 30).
+</ResponseField>
+
+<ResponseField name="SlotCount" type="int">
+  Gets the total number of storage slots (BoxCount × BoxSlotCount).
+</ResponseField>
+
+<ResponseField name="CurrentBox" type="int">
+  Gets or sets the currently selected box.
+</ResponseField>
+
+<ResponseField name="BoxesUnlocked" type="int">
+  Gets or sets the number of unlocked boxes.
+</ResponseField>
+
+<ResponseField name="HasBox" type="bool">
+  Gets whether this save file has box storage.
+</ResponseField>
+
+### Party Properties
+
+<ResponseField name="PartyCount" type="int">
+  Gets or sets the number of Pokémon in the party.
+</ResponseField>
+
+<ResponseField name="HasParty" type="bool">
+  Gets whether this save file has a party.
+</ResponseField>
+
+<ResponseField name="PartyData" type="IList<PKM>">
+  Gets or sets the party Pokémon.
+</ResponseField>
+
+### Format Limits
+
+<ResponseField name="Personal" type="IPersonalTable">
+  Gets the personal data table for this save file.
+</ResponseField>
+
+<ResponseField name="MaxStringLengthTrainer" type="int">
+  Gets the maximum trainer name length.
+</ResponseField>
+
+<ResponseField name="MaxStringLengthNickname" type="int">
+  Gets the maximum nickname length.
+</ResponseField>
+
+<ResponseField name="MaxMoveID" type="ushort">
+  Gets the maximum move ID.
+</ResponseField>
+
+<ResponseField name="MaxSpeciesID" type="ushort">
+  Gets the maximum species ID.
+</ResponseField>
+
+<ResponseField name="MaxAbilityID" type="int">
+  Gets the maximum ability ID.
+</ResponseField>
+
+<ResponseField name="MaxItemID" type="int">
+  Gets the maximum item ID.
+</ResponseField>
+
+<ResponseField name="MaxBallID" type="int">
+  Gets the maximum ball ID.
+</ResponseField>
+
+<ResponseField name="MaxGameID" type="GameVersion">
+  Gets the maximum game version ID.
+</ResponseField>
+
+<ResponseField name="MaxEV" type="int">
+  Gets the maximum EV value per stat.
+</ResponseField>
+
+<ResponseField name="MaxIV" type="int">
+  Gets the maximum IV value per stat (typically 31).
+</ResponseField>
+
+### Pokédex
+
+<ResponseField name="HasPokeDex" type="bool">
+  Gets whether this save file has Pokédex data.
+</ResponseField>
+
+<ResponseField name="SeenCount" type="int">
+  Gets the count of Pokémon species seen.
+</ResponseField>
+
+<ResponseField name="CaughtCount" type="int">
+  Gets the count of Pokémon species caught.
+</ResponseField>
+
+<ResponseField name="PercentSeen" type="decimal">
+  Gets the percentage of Pokédex completion (seen).
+</ResponseField>
+
+<ResponseField name="PercentCaught" type="decimal">
+  Gets the percentage of Pokédex completion (caught).
+</ResponseField>
+
+### Validation
+
+<ResponseField name="ChecksumsValid" type="bool">
+  Gets whether all checksums in the save file are valid.
+</ResponseField>
+
+<ResponseField name="ChecksumInfo" type="string">
+  Gets checksum validation information.
+</ResponseField>
+
+## Methods
+
+### Save File Operations
+
+<ParamField path="Write(BinaryExportSetting setting = BinaryExportSetting.None)" type="method">
+  Writes the save file to a Memory buffer with optional export settings.
+  
+  **Parameters:**
+  - `setting` (BinaryExportSetting): Export settings to apply
+  
+  **Returns:** Memory&lt;byte&gt; - The finalized save file data
+</ParamField>
+
+<ParamField path="Clone()" type="method">
+  Creates a deep clone of the save file.
+  
+  **Returns:** SaveFile - Cloned save file
+</ParamField>
+
+<ParamField path="SetChecksums()" type="method">
+  Updates all checksums in the save file.
+</ParamField>
+
+<ParamField path="IsVersionValid()" type="method">
+  Checks if the game version is valid for this save file.
+  
+  **Returns:** bool - True if version is valid
+</ParamField>
+
+### Data Manipulation
+
+<ParamField path="SetData(ReadOnlySpan<byte> input, int offset)" type="method">
+  Writes data to the save file at the specified offset.
+  
+  **Parameters:**
+  - `input` (ReadOnlySpan&lt;byte&gt;): Data to write
+  - `offset` (int): Offset in the save file
+</ParamField>
+
+<ParamField path="SetData(Span<byte> dest, ReadOnlySpan<byte> input)" type="method">
+  Copies input data to the destination span.
+  
+  **Parameters:**
+  - `dest` (Span&lt;byte&gt;): Destination span
+  - `input` (ReadOnlySpan&lt;byte&gt;): Source data
+</ParamField>
+
+<ParamField path="CopyChangesFrom(SaveFile sav)" type="method">
+  Copies all changes from another save file.
+  
+  **Parameters:**
+  - `sav` (SaveFile): Source save file
+</ParamField>
+
+### Box Operations
+
+<ParamField path="BoxData" type="property">
+  Gets or sets all Pokémon in all boxes.
+  
+  **Type:** IList&lt;PKM&gt;
+</ParamField>
+
+<ParamField path="GetBoxData(int box)" type="method">
+  Gets all Pokémon from a specific box.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  
+  **Returns:** PKM[] - Array of Pokémon in the box
+</ParamField>
+
+<ParamField path="GetBoxSlotAtIndex(int box, int slot)" type="method">
+  Gets the Pokémon at a specific box and slot.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  - `slot` (int): Slot index within the box
+  
+  **Returns:** PKM - The Pokémon at that location
+</ParamField>
+
+<ParamField path="SetBoxSlotAtIndex(PKM pk, int box, int slot, EntityImportSettings settings = default)" type="method">
+  Sets a Pokémon at a specific box and slot.
+  
+  **Parameters:**
+  - `pk` (PKM): Pokémon to set
+  - `box` (int): Box index
+  - `slot` (int): Slot index within the box
+  - `settings` (EntityImportSettings): Import settings
+</ParamField>
+
+<ParamField path="GetBoxOffset(int box)" type="method">
+  Gets the byte offset for a specific box.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  
+  **Returns:** int - Byte offset
+</ParamField>
+
+<ParamField path="GetBoxSlotOffset(int box, int slot)" type="method">
+  Gets the byte offset for a specific box slot.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  - `slot` (int): Slot index
+  
+  **Returns:** int - Byte offset
+</ParamField>
+
+### Party Operations
+
+<ParamField path="GetPartySlotAtIndex(int index)" type="method">
+  Gets the Pokémon at the specified party index.
+  
+  **Parameters:**
+  - `index` (int): Party slot (0-5)
+  
+  **Returns:** PKM - The Pokémon in that slot
+</ParamField>
+
+<ParamField path="SetPartySlotAtIndex(PKM pk, int index, EntityImportSettings settings = default)" type="method">
+  Sets a Pokémon at the specified party index.
+  
+  **Parameters:**
+  - `pk` (PKM): Pokémon to set
+  - `index` (int): Party slot (0-5)
+  - `settings` (EntityImportSettings): Import settings
+</ParamField>
+
+<ParamField path="DeletePartySlot(int slot)" type="method">
+  Deletes a party slot and shifts remaining Pokémon down.
+  
+  **Parameters:**
+  - `slot` (int): Party slot to delete
+</ParamField>
+
+<ParamField path="GetPartyOffset(int slot)" type="method">
+  Gets the byte offset for a party slot.
+  
+  **Parameters:**
+  - `slot` (int): Party slot index
+  
+  **Returns:** int - Byte offset
+</ParamField>
+
+<ParamField path="IsPartyAllEggs(int except = -1)" type="method">
+  Checks if all party members are eggs (optionally excluding one slot).
+  
+  **Parameters:**
+  - `except` (int): Slot to exclude from check (default: -1 for none)
+  
+  **Returns:** bool - True if all are eggs
+</ParamField>
+
+### Storage Management
+
+<ParamField path="SortBoxes(int BoxStart = 0, int BoxEnd = -1, Func<IEnumerable<PKM>, int, IEnumerable<PKM>>? sortMethod = null, bool reverse = false)" type="method">
+  Sorts Pokémon in the specified box range.
+  
+  **Parameters:**
+  - `BoxStart` (int): Starting box index
+  - `BoxEnd` (int): Ending box index (-1 for last box)
+  - `sortMethod` (Func): Custom sort method
+  - `reverse` (bool): Reverse the sort order
+  
+  **Returns:** int - Count of repositioned Pokémon
+</ParamField>
+
+<ParamField path="ClearBoxes(int BoxStart = 0, int BoxEnd = -1, Func<PKM, bool>? deleteCriteria = null)" type="method">
+  Clears Pokémon from boxes.
+  
+  **Parameters:**
+  - `BoxStart` (int): Starting box index
+  - `BoxEnd` (int): Ending box index (-1 for last box)
+  - `deleteCriteria` (Func): Criteria for deletion
+  
+  **Returns:** int - Count of deleted Pokémon
+</ParamField>
+
+<ParamField path="ModifyBoxes(Action<PKM> action, int BoxStart = 0, int BoxEnd = -1)" type="method">
+  Modifies all Pokémon in the specified box range.
+  
+  **Parameters:**
+  - `action` (Action&lt;PKM&gt;): Modification action
+  - `BoxStart` (int): Starting box index
+  - `BoxEnd` (int): Ending box index (-1 for last box)
+  
+  **Returns:** int - Count of modified Pokémon
+</ParamField>
+
+<ParamField path="MoveBox(int box, int insertBeforeBox)" type="method">
+  Moves a box to a new position.
+  
+  **Parameters:**
+  - `box` (int): Box to move
+  - `insertBeforeBox` (int): Position to insert before
+  
+  **Returns:** bool - True if successful
+</ParamField>
+
+<ParamField path="SwapBox(int box1, int box2)" type="method">
+  Swaps two boxes.
+  
+  **Parameters:**
+  - `box1` (int): First box
+  - `box2` (int): Second box
+  
+  **Returns:** bool - True if successful
+</ParamField>
+
+<ParamField path="CompressStorage(out int storedCount, Span<int> slotPointers)" type="method">
+  Compresses storage by moving all Pokémon to the front.
+  
+  **Parameters:**
+  - `storedCount` (out int): Number of Pokémon stored
+  - `slotPointers` (Span&lt;int&gt;): Slot pointers to update
+  
+  **Returns:** bool - True if storage was compressed
+</ParamField>
+
+### Slot Protection
+
+<ParamField path="GetBoxSlotFlags(int box, int slot)" type="method">
+  Gets the protection flags for a box slot.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  - `slot` (int): Slot index
+  
+  **Returns:** StorageSlotSource - Protection flags
+</ParamField>
+
+<ParamField path="IsBoxSlotLocked(int box, int slot)" type="method">
+  Checks if a box slot is locked.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  - `slot` (int): Slot index
+  
+  **Returns:** bool - True if locked
+</ParamField>
+
+<ParamField path="IsBoxSlotOverwriteProtected(int box, int slot)" type="method">
+  Checks if a box slot is protected from overwriting.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  - `slot` (int): Slot index
+  
+  **Returns:** bool - True if protected
+</ParamField>
+
+<ParamField path="NextOpenBoxSlot(int lastKnownOccupied = -1)" type="method">
+  Finds the next open box slot.
+  
+  **Parameters:**
+  - `lastKnownOccupied` (int): Last known occupied slot
+  
+  **Returns:** int - Index of next open slot, or -1 if storage is full
+</ParamField>
+
+<ParamField path="IsStorageFull" type="property">
+  Gets whether storage is completely full.
+  
+  **Type:** bool
+</ParamField>
+
+### Pokédex Operations
+
+<ParamField path="GetSeen(ushort species)" type="method">
+  Checks if a species has been seen.
+  
+  **Parameters:**
+  - `species` (ushort): Species ID
+  
+  **Returns:** bool - True if seen
+</ParamField>
+
+<ParamField path="SetSeen(ushort species, bool seen)" type="method">
+  Sets whether a species has been seen.
+  
+  **Parameters:**
+  - `species` (ushort): Species ID
+  - `seen` (bool): Seen status
+</ParamField>
+
+<ParamField path="GetCaught(ushort species)" type="method">
+  Checks if a species has been caught.
+  
+  **Parameters:**
+  - `species` (ushort): Species ID
+  
+  **Returns:** bool - True if caught
+</ParamField>
+
+<ParamField path="SetCaught(ushort species, bool caught)" type="method">
+  Sets whether a species has been caught.
+  
+  **Parameters:**
+  - `species` (ushort): Species ID
+  - `caught` (bool): Caught status
+</ParamField>
+
+### Binary Export
+
+<ParamField path="GetPCBinary()" type="method">
+  Exports all PC box data as a binary array.
+  
+  **Returns:** byte[] - Binary data
+</ParamField>
+
+<ParamField path="GetBoxBinary(int box)" type="method">
+  Exports a single box as binary data.
+  
+  **Parameters:**
+  - `box` (int): Box index
+  
+  **Returns:** byte[] - Binary data
+</ParamField>
+
+<ParamField path="SetPCBinary(ReadOnlySpan<byte> data)" type="method">
+  Imports PC box data from binary.
+  
+  **Parameters:**
+  - `data` (ReadOnlySpan&lt;byte&gt;): Binary data to import
+  
+  **Returns:** bool - True if successful
+</ParamField>
+
+<ParamField path="SetBoxBinary(ReadOnlySpan<byte> data, int box)" type="method">
+  Imports a single box from binary data.
+  
+  **Parameters:**
+  - `data` (ReadOnlySpan&lt;byte&gt;): Binary data
+  - `box` (int): Box index
+  
+  **Returns:** bool - True if successful
+</ParamField>
+
+### Flag Operations
+
+<ParamField path="GetFlag(int offset, int bitIndex)" type="method">
+  Gets the value of a flag bit.
+  
+  **Parameters:**
+  - `offset` (int): Byte offset
+  - `bitIndex` (int): Bit index within the byte
+  
+  **Returns:** bool - Flag value
+</ParamField>
+
+<ParamField path="SetFlag(int offset, int bitIndex, bool value)" type="method">
+  Sets the value of a flag bit.
+  
+  **Parameters:**
+  - `offset` (int): Byte offset
+  - `bitIndex` (int): Bit index within the byte
+  - `value` (bool): Value to set
+</ParamField>
+
+## Usage Examples
+
+### Loading and Saving
+
+```csharp
+using PKHeX.Core;
+
+// Load a save file
+byte[] saveData = File.ReadAllBytes("save.bin");
+var sav = SaveUtil.GetVariantSAV(saveData);
+
+if (sav == null)
+{
+    Console.WriteLine("Invalid save file!");
+    return;
+}
+
+Console.WriteLine($"Loaded {sav.Version} save file");
+Console.WriteLine($"Trainer: {sav.OT}");
+Console.WriteLine($"Play Time: {sav.PlayTimeString}");
+
+// Make changes...
+sav.Money = 999999;
+
+// Save the file
+var exportData = sav.Write();
+File.WriteAllBytes("save_modified.bin", exportData.ToArray());
+```
+
+### Working with Party
+
+```csharp
+// Get party data
+var party = sav.PartyData;
+Console.WriteLine($"Party Count: {sav.PartyCount}");
+
+foreach (var pk in party)
+{
+    Console.WriteLine($"{pk.Nickname} (Lv. {pk.CurrentLevel})");
+}
+
+// Add a Pokémon to party
+var newPk = sav.BlankPKM;
+newPk.Species = 25; // Pikachu
+newPk.CurrentLevel = 50;
+newPk.ResetPartyStats();
+
+if (sav.PartyCount < 6)
+{
+    sav.SetPartySlotAtIndex(newPk, sav.PartyCount);
+    Console.WriteLine("Added Pikachu to party!");
+}
+```
+
+### Box Management
+
+```csharp
+// Get Pokémon from specific box
+var box1Pokemon = sav.GetBoxData(0);
+
+// Iterate through all boxes
+for (int box = 0; box < sav.BoxCount; box++)
+{
+    for (int slot = 0; slot < sav.BoxSlotCount; slot++)
+    {
+        var pk = sav.GetBoxSlotAtIndex(box, slot);
+        if (pk.Species != 0) // Not empty
+        {
+            Console.WriteLine($"Box {box + 1}, Slot {slot + 1}: {pk.Nickname}");
+        }
+    }
+}
+
+// Set a Pokémon in a box
+var myPokemon = new PK9();
+myPokemon.Species = 6; // Charizard
+myPokemon.CurrentLevel = 100;
+sav.SetBoxSlotAtIndex(myPokemon, box: 0, slot: 0);
+
+// Find next empty slot
+int nextSlot = sav.NextOpenBoxSlot();
+if (nextSlot != -1)
+{
+    Console.WriteLine($"Next empty slot: {nextSlot}");
+}
+```
+
+### Sorting and Filtering
+
+```csharp
+// Sort all boxes by species
+int moved = sav.SortBoxes();
+Console.WriteLine($"Sorted {moved} Pokémon");
+
+// Sort specific box range by level (descending)
+moved = sav.SortBoxes(
+    BoxStart: 0,
+    BoxEnd: 2,
+    sortMethod: (pkms, _) => pkms.OrderByDescending(p => p.CurrentLevel),
+    reverse: false
+);
+
+// Clear all eggs from boxes
+int deleted = sav.ClearBoxes(
+    deleteCriteria: pk => pk.IsEgg
+);
+Console.WriteLine($"Deleted {deleted} eggs");
+
+// Make all Pokémon shiny
+int modified = sav.ModifyBoxes(
+    action: pk => pk.SetShiny()
+);
+Console.WriteLine($"Made {modified} Pokémon shiny");
+```
+
+### Pokédex Operations
+
+```csharp
+if (sav.HasPokeDex)
+{
+    // Check specific Pokémon
+    bool seenPikachu = sav.GetSeen(25);
+    bool caughtPikachu = sav.GetCaught(25);
+    
+    Console.WriteLine($"Pikachu - Seen: {seenPikachu}, Caught: {caughtPikachu}");
+    
+    // Mark as caught
+    sav.SetCaught(25, true);
+    sav.SetSeen(25, true);
+    
+    // Get completion stats
+    Console.WriteLine($"Pokédex: {sav.CaughtCount}/{sav.MaxSpeciesID} ({sav.PercentCaught:P2})");
+    Console.WriteLine($"Seen: {sav.SeenCount} ({sav.PercentSeen:P2})");
+}
+```
+
+### Binary Import/Export
+
+```csharp
+// Export all boxes to binary
+byte[] pcData = sav.GetPCBinary();
+File.WriteAllBytes("pc_backup.bin", pcData);
+
+// Export single box
+byte[] box1Data = sav.GetBoxBinary(0);
+File.WriteAllBytes("box1.bin", box1Data);
+
+// Import box data
+byte[] importData = File.ReadAllBytes("box1.bin");
+bool success = sav.SetBoxBinary(importData, box: 0);
+if (success)
+{
+    Console.WriteLine("Box imported successfully!");
+}
+```
+
+### Slot Protection
+
+```csharp
+// Check if slot is locked
+if (sav.IsBoxSlotLocked(box: 0, slot: 0))
+{
+    Console.WriteLine("Slot is locked!");
+}
+
+// Check overwrite protection
+if (sav.IsBoxSlotOverwriteProtected(box: 0, slot: 0))
+{
+    Console.WriteLine("Cannot overwrite this slot");
+}
+
+// Get slot flags
+var flags = sav.GetBoxSlotFlags(box: 0, slot: 0);
+if (flags.HasFlag(StorageSlotSource.Party))
+{
+    Console.WriteLine("This Pokémon is in the party");
+}
+```
+
+## See Also
+
+- [PKM Class](/api/pkm) - For working with individual Pokémon
+- [LegalityAnalysis Class](/api/legality-analysis) - For validating Pokémon legality
+- [ShowdownSet Class](/api/showdown-set) - For importing/exporting Showdown format

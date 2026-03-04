@@ -1,0 +1,370 @@
+---
+title: Item & Move Data Utilities
+description: Access item storage, move information, PP values, and game-specific data
+---
+
+## Overview
+
+PKHeX provides utilities for working with items and moves including legal item lists, inventory management, move PP values, type information, and generation-specific constraints.
+
+## Item Storage
+
+The `IItemStorage` interface and its implementations define which items are legal for each game.
+
+### Available Item Storage Classes
+
+```csharp
+using PKHeX.Core;
+
+// Generation 9
+var svItems = ItemStorage9SV.Instance;
+var zaItems = ItemStorage9ZA.Instance;
+
+// Generation 8
+var swshItems = ItemStorage8SWSH.Instance;
+var bdspItems = ItemStorage8BDSP.Instance;
+var laItems = ItemStorage8LA.Instance;
+
+// Generation 7
+var usmItems = ItemStorage7USUM.Instance;
+var smItems = ItemStorage7SM.Instance;
+var ggItems = ItemStorage7GG.Instance;
+
+// Earlier generations
+var gen6Items = ItemStorage6XY.Instance;
+var gen5Items = ItemStorage5BW.Instance;
+var gen4Items = ItemStorage4.Instance;
+var gen3Items = ItemStorage3.Instance;
+var gen2Items = ItemStorage2.Instance;
+var gen1Items = ItemStorage1.Instance;
+```
+
+### Getting Legal Items
+
+```csharp
+// Get items for a specific inventory type
+var medicines = ItemStorage9SV.Medicine;
+var balls = ItemStorage9SV.Balls;
+var berries = ItemStorage9SV.Berry;
+var machines = ItemStorage9SV.Machine;  // TMs/TRs
+var battle = ItemStorage9SV.Battle;     // Battle items
+var treasure = ItemStorage9SV.Treasure; // Valuable items
+var other = ItemStorage9SV.Other;       // General items
+
+// Get all holdable items
+ushort[] allHeld = ItemStorage9SV.GetAllHeld();
+```
+
+### Generation 9 (Scarlet/Violet) Specific
+
+```csharp
+// Picnic items (ingredients)
+var picnicItems = ItemStorage9SV.Picnic;
+
+// Crafting materials
+var materials = ItemStorage9SV.Material;
+
+// Event items (key items)
+var eventItems = ItemStorage9SV.Event;
+
+// Check item categories
+bool isIngredient = ItemStorage9SV.IsIngredient(1888);
+bool isPick = ItemStorage9SV.IsPick(2334);
+bool isAccessory = ItemStorage9SV.IsAccessory(2311);
+```
+
+### Checking Item Legality
+
+```csharp
+var storage = ItemStorage9SV.Instance;
+
+// Check if item is legal
+bool isLegal = storage.IsLegal(
+    InventoryType.Items,
+    itemIndex: 50,
+    itemCount: 1
+);
+
+// Get items for inventory type
+ReadOnlySpan<ushort> items = storage.GetItems(InventoryType.Medicine);
+
+// Get maximum count for item type
+int maxCount = storage.GetMax(InventoryType.Items); // 999
+```
+
+### Inventory Types
+
+```csharp
+public enum InventoryType
+{
+    None,
+    Items,        // General items
+    KeyItems,     // Key/event items
+    TMHMs,        // Technical Machines
+    Medicine,     // Healing items
+    Berries,      // Berries
+    Balls,        // Poké Balls
+    BattleItems,  // Battle items (X Attack, etc.)
+    Treasure,     // Valuable items
+    Ingredients,  // Sandwich ingredients (Gen 9)
+    Candy,        // EXP/stat candies (Gen 7+)
+}
+```
+
+### Finding Inventory Pouch
+
+```csharp
+// Determine which pouch an item belongs to
+var pouch = ItemStorage9SV.GetInventoryPouch(1); // Master Ball -> Balls
+```
+
+### Unreleased Items
+
+```csharp
+// Items that exist in data but aren't obtainable
+var unreleased = ItemStorage9SV.Unreleased;
+// Includes: Cherish Ball, Park Ball, Strange Ball, etc.
+```
+
+## Move Information
+
+The `MoveInfo` class provides utilities for working with move data.
+
+### Getting Move PP
+
+```csharp
+// Get base PP for a move in a specific context
+byte pp = MoveInfo.GetPP(EntityContext.Gen9, 1); // Pound: 35 PP
+
+// Get PP table for generation
+ReadOnlySpan<byte> ppTable = MoveInfo.GetPPTable(EntityContext.Gen9);
+byte thunderboltPP = ppTable[85]; // 15 PP
+```
+
+### Move Type Information
+
+```csharp
+// Get move type
+byte moveType = MoveInfo.GetType(85, EntityContext.Gen9); // Thunderbolt -> Electric
+
+// Get type table for context
+ReadOnlySpan<byte> typeTable = MoveInfo.GetTypeTable(EntityContext.Gen9);
+```
+
+### Special Move Categories
+
+```csharp
+// Check if move is a Z-Move
+bool isZMove = MoveInfo.IsMoveZ(622); // Breakneck Blitz (Physical)
+
+// Check if move is Dynamax-only
+bool isDynamax = MoveInfo.IsMoveDynamax(800); // Max Flare
+
+// Check if move is Torque (Starmobile)
+bool isTorque = MoveInfo.IsMoveTorque(896); // Blazing Torque
+
+// Check if move can be learned normally
+bool isKnowable = MoveInfo.IsMoveKnowable(1); // Pound: true
+```
+
+### Dummied Moves
+
+Some moves exist in game data but cannot be used in battle (yellow triangle).
+
+```csharp
+var pk = /* some PKM */;
+
+// Check if a specific move is unusable
+bool isDummied = MoveInfo.IsDummiedMove(pk, 0); // Check first move slot
+
+// Check if any move is dummied
+bool hasAnyDummied = MoveInfo.IsDummiedMoveAny(pk);
+
+// Get dummied moves for a context
+ReadOnlySpan<byte> dummied = MoveInfo.GetDummiedMovesHashSet(EntityContext.Gen9);
+```
+
+### Sketch Validation
+
+```csharp
+// Check if move can be Sketched
+bool canSketch = MoveInfo.IsSketchValid(1, EntityContext.Gen9); // Pound
+
+// Struggle, Chatter, and some event moves cannot be Sketched
+bool canSketchStruggle = MoveInfo.IsSketchValid(165, EntityContext.Gen9); // false
+```
+
+## Context-Specific Move Data
+
+Each generation has its own move data implementation:
+
+```csharp
+// Generation-specific PP tables
+var gen1PP = MoveInfo1.PP;
+var gen2PP = MoveInfo2.PP;
+var gen3PP = MoveInfo3.PP;
+var gen9PP = MoveInfo9.PP;
+
+// Generation-specific type tables
+var gen1Types = MoveInfo1.Type;  // Bite was Normal in Gen 1
+var gen9Types = MoveInfo9.Type;  // Bite is Dark in modern games
+
+// Dummied moves by generation
+var gen8Dummied = MoveInfo8.DummiedMoves;
+var gen9Dummied = MoveInfo9.DummiedMoves;
+```
+
+## Common Use Cases
+
+### Validate Item in Inventory
+
+```csharp
+public bool CanHoldItem(ushort itemID, GameVersion version)
+{
+    var storage = version switch
+    {
+        GameVersion.SV or GameVersion.VL => ItemStorage9SV.Instance,
+        GameVersion.SW or GameVersion.SH => ItemStorage8SWSH.Instance,
+        GameVersion.BD or GameVersion.SP => ItemStorage8BDSP.Instance,
+        _ => null
+    };
+    
+    if (storage == null) return false;
+    
+    var allHeld = version switch
+    {
+        GameVersion.SV or GameVersion.VL => ItemStorage9SV.GetAllHeld(),
+        _ => Array.Empty<ushort>()
+    };
+    
+    return allHeld.Contains(itemID);
+}
+```
+
+### Calculate Maximum PP
+
+```csharp
+public byte GetMaxPP(ushort moveID, byte ppUps, EntityContext context)
+{
+    byte basePP = MoveInfo.GetPP(context, moveID);
+    // Each PP Up adds 20% of base PP (max 3 PP Ups)
+    return (byte)(basePP + (basePP * ppUps / 5));
+}
+```
+
+### Check Move Validity for Generation
+
+```csharp
+public bool IsMoveValid(ushort moveID, EntityContext context)
+{
+    var ppTable = MoveInfo.GetPPTable(context);
+    
+    // Move exists if it has PP data
+    if (moveID >= ppTable.Length)
+        return false;
+        
+    // Check if it's a knowable move
+    if (!MoveInfo.IsMoveKnowable(moveID))
+        return false;
+        
+    // Check if it's dummied in this context
+    var dummied = MoveInfo.GetDummiedMovesHashSet(context);
+    return !MoveInfo.IsDummiedMove(dummied, moveID);
+}
+```
+
+### Get Items for Pouch UI
+
+```csharp
+public ReadOnlySpan<ushort> GetPouchItems(InventoryType pouch)
+{
+    return pouch switch
+    {
+        InventoryType.Medicine => ItemStorage9SV.Medicine,
+        InventoryType.Balls => ItemStorage9SV.Balls,
+        InventoryType.TMHMs => ItemStorage9SV.Machine,
+        InventoryType.Berries => ItemStorage9SV.Berry,
+        InventoryType.BattleItems => ItemStorage9SV.Battle,
+        InventoryType.Treasure => ItemStorage9SV.Treasure,
+        InventoryType.Ingredients => ItemStorage9SV.Picnic,
+        InventoryType.Candy => ItemStorage9SV.Material,
+        _ => ItemStorage9SV.Other
+    };
+}
+```
+
+### Check TM Compatibility
+
+```csharp
+public bool CanLearnTM(ushort itemID, ushort species)
+{
+    // Get TM move from item
+    if (!ItemStorage9SV.Machine.Contains(itemID))
+        return false;
+        
+    // Look up in PersonalInfo TM compatibility
+    var info = PersonalTable.SV[species];
+    // Implementation would check TM flags in PersonalInfo
+    return true; // Simplified
+}
+```
+
+### Detect Move Changes Between Generations
+
+```csharp
+public bool HasTypeChanged(ushort moveID)
+{
+    var gen1Type = MoveInfo1.Type.Length > moveID ? MoveInfo1.Type[moveID] : (byte)0;
+    var gen9Type = MoveInfo9.Type.Length > moveID ? MoveInfo9.Type[moveID] : (byte)0;
+    
+    return gen1Type != gen9Type && gen1Type != 0;
+}
+```
+
+### Filter Legal Moves for Context
+
+```csharp
+public List<ushort> GetLegalMoves(EntityContext context)
+{
+    var ppTable = MoveInfo.GetPPTable(context);
+    var dummied = MoveInfo.GetDummiedMovesHashSet(context);
+    var legal = new List<ushort>();
+    
+    for (ushort i = 1; i < ppTable.Length; i++)
+    {
+        if (ppTable[i] == 0) continue;
+        if (!MoveInfo.IsMoveKnowable(i)) continue;
+        if (MoveInfo.IsDummiedMove(dummied, i)) continue;
+        
+        legal.Add(i);
+    }
+    
+    return legal;
+}
+```
+
+### Validate Item Count
+
+```csharp
+public bool IsValidItemCount(InventoryType type, int count)
+{
+    var storage = ItemStorage9SV.Instance;
+    int maxCount = storage.GetMax(type);
+    return count > 0 && count <= maxCount;
+}
+```
+
+## Related Types
+
+- `IItemStorage` - Item storage interface
+- `InventoryType` - Inventory pouch types
+- `EntityContext` - Generation/game context
+- `GameVersion` - Specific game version
+- `Move` - Move ID enumeration
+- `MoveType` - Move type enumeration
+
+## See Also
+
+- [PersonalInfo](/api/utilities/personal-info) - Species data and TM/TR compatibility
+- [Game Strings](/api/utilities/game-strings) - Localized item and move names
+- [PKM Interface](/api/pkm/interface) - Pokémon data structure

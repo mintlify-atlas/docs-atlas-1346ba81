@@ -1,0 +1,467 @@
+---
+title: "Running Legality Checks"
+description: "How to perform legality analysis on Pokémon data"
+icon: "play"
+---
+
+## Basic Usage
+
+The simplest way to check a Pokémon's legality:
+
+```csharp
+using PKHeX.Core;
+
+// Load a Pokémon from file
+byte[] data = File.ReadAllBytes("pokemon.pk9");
+var pk = PKMConverter.GetPKMfromBytes(data);
+
+if (pk == null)
+{
+    Console.WriteLine("Failed to load Pokémon data");
+    return;
+}
+
+// Perform legality analysis
+var analysis = new LegalityAnalysis(pk);
+
+// Check the result
+if (analysis.Valid)
+{
+    Console.WriteLine("✓ Pokémon is legal!");
+}
+else
+{
+    Console.WriteLine("✗ Pokémon has legality issues");
+}
+```
+
+## Constructors
+
+The `LegalityAnalysis` class has three constructors:
+
+### Standard Constructor
+
+```csharp
+// Most common usage - uses Pokémon's built-in PersonalInfo
+var analysis = new LegalityAnalysis(pk);
+```
+
+### With Storage Context
+
+```csharp
+// Specify where the Pokémon came from
+var analysis = new LegalityAnalysis(pk, StorageSlotType.Box);
+var analysis2 = new LegalityAnalysis(pk, StorageSlotType.Party);
+var analysis3 = new LegalityAnalysis(pk, StorageSlotType.BattleTeam);
+```
+
+### With Save File Context
+
+```csharp
+// Use save file's personal table for more accurate checking
+var sav = SaveUtil.GetVariantSAV(File.ReadAllBytes("save.sav"));
+if (sav != null)
+{
+    var pk = sav.GetBoxSlotAtIndex(0, 0);
+    
+    // This uses the save file's PersonalInfo table
+    // Important for games with different form data
+    var analysis = new LegalityAnalysis(pk, sav.Personal, StorageSlotType.Box);
+}
+```
+
+## Checking Multiple Pokémon
+
+### Box Validation
+
+```csharp
+using PKHeX.Core;
+
+public static void ValidateBox(SaveFile sav, int boxNumber)
+{
+    int boxStart = sav.GetBoxSlotOffset(boxNumber, 0);
+    int boxSize = sav.BoxSlotCount;
+    
+    for (int i = 0; i < boxSize; i++)
+    {
+        var pk = sav.GetBoxSlotAtIndex(boxNumber, i);
+        
+        if (pk.Species == 0)
+            continue; // Empty slot
+            
+        var analysis = new LegalityAnalysis(pk, sav.Personal);
+        
+        if (!analysis.Valid)
+        {
+            Console.WriteLine($"Box {boxNumber}, Slot {i}: {pk.Nickname}");
+            Console.WriteLine($"  Species: {pk.Species}");
+            Console.WriteLine($"  Issues found: {analysis.Results.Count(r => !r.Valid)}");
+        }
+    }
+}
+```
+
+### Full Save Validation
+
+```csharp
+public static Dictionary<string, List<PKM>> ValidateEntireSave(SaveFile sav)
+{
+    var illegal = new Dictionary<string, List<PKM>>();
+    
+    // Check all boxes
+    for (int box = 0; box < sav.BoxCount; box++)
+    {
+        for (int slot = 0; slot < sav.BoxSlotCount; slot++)
+        {
+            var pk = sav.GetBoxSlotAtIndex(box, slot);
+            if (pk.Species == 0) continue;
+            
+            var analysis = new LegalityAnalysis(pk, sav.Personal);
+            if (!analysis.Valid)
+            {
+                var key = $"Box {box + 1}, Slot {slot + 1}";
+                if (!illegal.ContainsKey(key))
+                    illegal[key] = new List<PKM>();
+                illegal[key].Add(pk);
+            }
+        }
+    }
+    
+    // Check party
+    for (int i = 0; i < sav.PartyCount; i++)
+    {
+        var pk = sav.GetPartySlot(sav.PartyData, i);
+        if (pk.Species == 0) continue;
+        
+        var analysis = new LegalityAnalysis(pk, sav.Personal);
+        if (!analysis.Valid)
+        {
+            var key = $"Party Slot {i + 1}";
+            if (!illegal.ContainsKey(key))
+                illegal[key] = new List<PKM>();
+            illegal[key].Add(pk);
+        }
+    }
+    
+    return illegal;
+}
+```
+
+## Batch Processing
+
+```csharp
+using System.IO;
+using System.Linq;
+using PKHeX.Core;
+
+public static void BatchValidate(string directory)
+{
+    var files = Directory.GetFiles(directory, "*.pk*");
+    
+    var results = files.AsParallel().Select(file =>
+    {
+        try
+        {
+            var data = File.ReadAllBytes(file);
+            var pk = PKMConverter.GetPKMfromBytes(data);
+            
+            if (pk == null)
+                return (file, valid: false, error: "Failed to load");
+            
+            var analysis = new LegalityAnalysis(pk);
+            return (file, valid: analysis.Valid, error: (string)null);
+        }
+        catch (Exception ex)
+        {
+            return (file, valid: false, error: ex.Message);
+        }
+    }).ToList();
+    
+    // Summary
+    int total = results.Count;
+    int legal = results.Count(r => r.valid);
+    int illegal = total - legal;
+    
+    Console.WriteLine($"Total: {total}");
+    Console.WriteLine($"Legal: {legal} ({100.0 * legal / total:F1}%)");
+    Console.WriteLine($"Illegal: {illegal} ({100.0 * illegal / total:F1}%)");
+    
+    // Show illegal files
+    foreach (var (file, valid, error) in results.Where(r => !r.valid))
+    {
+        Console.WriteLine($"  {Path.GetFileName(file)}: {error ?? "Illegal"}");
+    }
+}
+```
+
+## Performance Considerations
+
+### Reusing Analysis Objects
+
+<Warning>
+  Don't reuse `LegalityAnalysis` objects. Create a new one for each Pokémon.
+</Warning>
+
+```csharp
+// ✗ WRONG - Don't do this
+var analysis = new LegalityAnalysis(pk1);
+analysis.Entity = pk2; // This property doesn't exist!
+
+// ✓ CORRECT - Create new instances
+var analysis1 = new LegalityAnalysis(pk1);
+var analysis2 = new LegalityAnalysis(pk2);
+```
+
+### Parallel Processing
+
+Legality analysis is thread-safe for read operations:
+
+```csharp
+var pokemonList = LoadManyPokemon();
+
+var results = pokemonList.AsParallel()
+    .WithDegreeOfParallelism(Environment.ProcessorCount)
+    .Select(pk => new
+    {
+        Pokemon = pk,
+        Analysis = new LegalityAnalysis(pk)
+    })
+    .ToList();
+
+foreach (var item in results)
+{
+    if (!item.Analysis.Valid)
+    {
+        Console.WriteLine($"{item.Pokemon.Nickname} is illegal");
+    }
+}
+```
+
+## Accessing Analysis Data
+
+### Key Properties
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Overall validity
+bool isLegal = analysis.Valid;
+bool didComplete = analysis.Parsed;
+
+// Entity being checked
+PKM pokemon = analysis.Entity;
+
+// All check results
+IReadOnlyList<CheckResult> results = analysis.Results;
+
+// Encounter information
+IEncounterable encounter = analysis.EncounterMatch;
+IEncounterable original = analysis.EncounterOriginal;
+
+// Storage context
+StorageSlotType origin = analysis.SlotOrigin;
+
+// Detailed info
+LegalInfo info = analysis.Info;
+```
+
+### LegalInfo Properties
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+var info = analysis.Info;
+
+// Generation data
+byte generation = info.Generation;
+
+// Encounter details
+IEncounterable match = info.EncounterMatch;
+
+// Move validation results
+MoveResult[] currentMoves = info.Moves;
+MoveResult[] relearnMoves = info.Relearn;
+
+// Evolution chains
+EvolutionHistory evolutions = info.EvoChainsAllGens;
+
+// PID/IV information
+PIDIV pidiv = info.PIDIV;
+bool pidParsed = info.PIDParsed;
+
+// Frame matching
+bool frameMatches = info.FrameMatches;
+bool pidivMatches = info.PIDIVMatches;
+```
+
+## Move Validation
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+
+// Check current moves
+for (int i = 0; i < 4; i++)
+{
+    var moveResult = analysis.Info.Moves[i];
+    
+    if (moveResult.Valid)
+    {
+        Console.WriteLine($"Move {i + 1}: Legal");
+        Console.WriteLine($"  Method: {moveResult.Info.Method}");
+        Console.WriteLine($"  Game: {moveResult.Info.Environment}");
+    }
+    else
+    {
+        Console.WriteLine($"Move {i + 1}: Illegal");
+        if (moveResult.Expect != 0)
+        {
+            Console.WriteLine($"  Expected: {moveResult.Expect}");
+        }
+    }
+}
+
+// Check relearn moves (Gen 6+)
+for (int i = 0; i < 4; i++)
+{
+    var relearnResult = analysis.Info.Relearn[i];
+    
+    if (relearnResult.Valid)
+    {
+        Console.WriteLine($"Relearn {i + 1}: Legal");
+    }
+    else
+    {
+        Console.WriteLine($"Relearn {i + 1}: Illegal");
+    }
+}
+
+// Quick check for all moves valid
+bool allMovesValid = MoveResult.AllValid(analysis.Info.Moves);
+bool allRelearnValid = MoveResult.AllValid(analysis.Info.Relearn);
+```
+
+## Encounter Information
+
+```csharp
+var analysis = new LegalityAnalysis(pk);
+var encounter = analysis.EncounterMatch;
+
+Console.WriteLine($"Encounter Type: {encounter.GetType().Name}");
+Console.WriteLine($"Species: {encounter.Species}");
+Console.WriteLine($"Form: {encounter.Form}");
+Console.WriteLine($"Level Range: {encounter.LevelMin}-{encounter.LevelMax}");
+Console.WriteLine($"Generation: {encounter.Generation}");
+Console.WriteLine($"Context: {encounter.Context}");
+
+// Check encounter type
+if (encounter is EncounterStatic9 static9)
+{
+    Console.WriteLine("Static encounter (Gen 9)");
+    Console.WriteLine($"Location: {static9.Location}");
+}
+else if (encounter is EncounterSlot9 slot9)
+{
+    Console.WriteLine("Wild encounter (Gen 9)");
+    Console.WriteLine($"Location: {slot9.Location}");
+}
+else if (encounter is MysteryGift gift)
+{
+    Console.WriteLine("Mystery Gift");
+    Console.WriteLine($"Card Title: {gift.CardTitle}");
+}
+else if (encounter is EncounterEgg egg)
+{
+    Console.WriteLine("Egg encounter");
+}
+else if (encounter is EncounterTrade trade)
+{
+    Console.WriteLine("In-game trade");
+}
+else if (encounter is EncounterInvalid)
+{
+    Console.WriteLine("No valid encounter found!");
+}
+```
+
+## Error Handling
+
+```csharp
+try
+{
+    var pk = PKMConverter.GetPKMfromBytes(data);
+    if (pk == null)
+    {
+        Console.WriteLine("Invalid Pokémon data");
+        return;
+    }
+    
+    var analysis = new LegalityAnalysis(pk);
+    
+    if (!analysis.Parsed)
+    {
+        Console.WriteLine("Analysis failed to complete");
+        Console.WriteLine("This usually indicates corrupted data");
+        
+        // Check for error results
+        var errors = analysis.Results
+            .Where(r => r.Result == LegalityCheckResultCode.Error);
+        
+        foreach (var error in errors)
+        {
+            Console.WriteLine($"Error in {error.Identifier}");
+        }
+        
+        return;
+    }
+    
+    // Normal processing...
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Exception during analysis: {ex.Message}");
+}
+```
+
+## Quick Reference
+
+<AccordionGroup>
+  <Accordion title="Check if a Pokémon is legal">
+    ```csharp
+    var analysis = new LegalityAnalysis(pk);
+    bool isLegal = analysis.Valid;
+    ```
+  </Accordion>
+  
+  <Accordion title="Get all invalid checks">
+    ```csharp
+    var analysis = new LegalityAnalysis(pk);
+    var issues = analysis.Results.Where(r => !r.Valid);
+    ```
+  </Accordion>
+  
+  <Accordion title="Check specific aspect">
+    ```csharp
+    var analysis = new LegalityAnalysis(pk);
+    var abilityCheck = analysis.Results
+        .FirstOrDefault(r => r.Identifier == CheckIdentifier.Ability);
+    ```
+  </Accordion>
+  
+  <Accordion title="Get encounter match">
+    ```csharp
+    var analysis = new LegalityAnalysis(pk);
+    var encounter = analysis.EncounterMatch;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Interpreting Results" icon="list-check" href="/guides/legality/interpreting-results">
+    Learn how to understand and display legality check results
+  </Card>
+  
+  <Card title="Custom Validation" icon="code" href="/guides/legality/custom-validation">
+    Add your own custom validation logic
+  </Card>
+</CardGroup>

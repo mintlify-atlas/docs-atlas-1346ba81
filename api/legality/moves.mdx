@@ -1,0 +1,542 @@
+---
+title: Moves
+description: Move validation and learn sources in PKHeX
+---
+
+The move validation system in PKHeX determines if a Pokémon can legally learn its current moveset based on its encounter, evolution history, and game of origin.
+
+## Core Components
+
+### LearnVerifier
+
+Top-level move verifier.
+
+```csharp
+internal static class LearnVerifier
+{
+    public static void Verify(
+        Span<MoveResult> result, 
+        PKM pk, 
+        IEncounterTemplate enc, 
+        EvolutionHistory history
+    );
+}
+```
+
+**Validation Flow:**
+1. Load current moves from PKM
+2. Verify each move can be learned
+3. Check for duplicates and gaps
+4. Validate first move slot is not empty
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifier.cs`
+
+**Example:**
+
+```csharp
+var pk = new PK9();
+var enc = new EncounterStatic9 { Species = 25, Level = 5 }; // Pikachu
+var history = EvolutionChain.GetEvolutionChainsAllGens(pk, enc);
+
+Span<MoveResult> results = stackalloc MoveResult[4];
+LearnVerifier.Verify(results, pk, enc, history);
+
+// Check results
+for (int i = 0; i < 4; i++)
+{
+    if (!results[i].Valid)
+        Console.WriteLine($"Move {i}: {results[i].Info.Method}");
+}
+```
+
+### MoveResult
+
+Represents validation result for a single move.
+
+```csharp
+public readonly record struct MoveResult
+{
+    public bool Valid { get; }
+    public MoveLearnInfo Info { get; }
+    
+    public static MoveResult Empty { get; }        // Valid empty slot
+    public static MoveResult EmptyInvalid { get; } // Invalid empty slot
+    public static MoveResult Duplicate { get; }    // Duplicate move
+    
+    public static MoveResult Unobtainable(ushort suggest);
+}
+```
+
+### MoveLearnInfo
+
+Describes how a move was learned.
+
+```csharp
+public readonly record struct MoveLearnInfo
+{
+    public LearnMethod Method { get; }        // How it was learned
+    public LearnEnvironment Environment { get; } // Which game
+    public ushort Argument { get; }          // Level, Gen, etc.
+}
+```
+
+## Learn Sources
+
+### ILearnSource
+
+Interface for game-specific move learning data.
+
+```csharp
+public interface ILearnSource
+{
+    LearnEnvironment Environment { get; }
+    
+    void GetAllMoves(
+        Span<bool> result, 
+        PKM pk, 
+        EvoCriteria evo, 
+        MoveSourceType types = MoveSourceType.All
+    );
+    
+    Learnset GetLearnset(ushort species, byte form);
+    
+    ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form);
+}
+```
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Sources/Shared/ILearnSource.cs`
+
+### LearnEnvironment
+
+Identifies which game(s) a move was learned in.
+
+```csharp
+public enum LearnEnvironment : byte
+{
+    None,
+    
+    // Gen 1
+    RB, YW,
+    
+    // Gen 2  
+    GS, C, Stadium2,
+    
+    // Gen 3
+    RS, E, FR, LG,
+    
+    // Gen 4
+    DP, Pt, HGSS,
+    
+    // Gen 5
+    BW, B2W2,
+    
+    // Gen 6
+    XY, ORAS,
+    
+    // Gen 7
+    SM, USUM, GG,
+    
+    // Gen 8
+    SWSH, BDSP, PLA,
+    
+    // Gen 9
+    SV, ZA,
+    
+    HOME,
+}
+```
+
+**Source:** `PKHeX.Core/Legality/LearnSource/LearnEnvironment.cs`
+
+### Learn Source Implementations
+
+```
+LearnSource/Sources/
+├── LearnSource1RB.cs      # Red/Blue
+├── LearnSource1YW.cs      # Yellow
+├── LearnSource2GS.cs      # Gold/Silver
+├── LearnSource2C.cs       # Crystal
+├── LearnSource3RS.cs      # Ruby/Sapphire
+├── LearnSource3E.cs       # Emerald
+├── LearnSource4DP.cs      # Diamond/Pearl
+├── LearnSource4HGSS.cs    # HeartGold/SoulSilver
+├── LearnSource8SWSH.cs    # Sword/Shield
+├── LearnSource8PLA.cs     # Legends Arceus
+├── LearnSource9SV.cs      # Scarlet/Violet
+└── LearnSource9ZA.cs      # Legends Z-A
+```
+
+## Learn Methods
+
+### LearnMethod
+
+Describes how a move can be learned.
+
+```csharp
+public enum LearnMethod : byte
+{
+    None,
+    Empty,           // Empty move slot
+    EmptyInvalid,    // Invalid empty slot
+    Duplicate,       // Duplicate move
+    
+    // Standard learning
+    Initial,         // Starting move
+    LevelUp,         // Level up
+    TMHM,            // TM/HM
+    Tutor,           // Move tutor
+    
+    // Breeding
+    EggMove,         // Egg move
+    InheritLevelUp,  // Inherited level-up move
+    
+    // Special
+    Sketch,          // Smeargle sketch
+    Special,         // Special event move
+    Shared,          // Shared egg move (Gen 8+)
+    ShedinjaEvo,     // Shedinja evolution
+    Relearn,         // Relearn move
+    
+    // HOME
+    BattleVersion,   // Version-exclusive battle move
+    Reminder,        // Move reminder
+}
+```
+
+**Source:** `PKHeX.Core/Legality/LearnSource/LearnMethod.cs`
+
+### MoveSourceType
+
+Flags for filtering move sources.
+
+```csharp
+[Flags]
+public enum MoveSourceType : byte
+{
+    None = 0,
+    LevelUp = 1 << 0,
+    TMHM = 1 << 1,
+    Tutor = 1 << 2,
+    Encounter = 1 << 3,
+    AllMachine = TMHM | Tutor,
+    All = LevelUp | TMHM | Tutor | Encounter,
+}
+```
+
+**Source:** `PKHeX.Core/Legality/MoveSourceType.cs`
+
+## Learnsets
+
+### Learnset
+
+Species-specific level-up moves.
+
+```csharp
+public sealed class Learnset
+{
+    public ReadOnlySpan<ushort> Moves { get; }   // Move IDs
+    public ReadOnlySpan<byte> Levels { get; }    // Learn levels
+    
+    public void SetEncounterMoves(
+        byte level, 
+        Span<ushort> moves, 
+        int start = 0
+    );
+    
+    public ReadOnlySpan<ushort> GetAllMoves();
+    
+    public bool GetIsLevelMove(ushort move, byte level);
+}
+```
+
+**Example:**
+
+```csharp
+var source = LearnSource9SV.Instance;
+var learnset = source.GetLearnset((int)Species.Pikachu, 0);
+
+// Get moves learned at level 15
+Span<ushort> moves = stackalloc ushort[4];
+learnset.SetEncounterMoves(15, moves);
+
+foreach (var move in moves)
+    Console.WriteLine($"Move: {move}");
+```
+
+## Move Validation
+
+### Current Moves
+
+Validates the 4 current moves:
+
+```csharp
+public static void Verify(
+    Span<MoveResult> result, 
+    PKM pk, 
+    IEncounterTemplate enc, 
+    EvolutionHistory history
+)
+{
+    // Load current moves
+    Span<ushort> current = stackalloc ushort[4];
+    pk.GetMoves(current);
+    
+    // Verify each move
+    if (pk.IsEgg)
+        LearnVerifierEgg.Verify(result, current, enc, pk);
+    else
+        LearnVerifierHistory.Verify(result, current, enc, pk, history);
+    
+    // Check for duplicates and gaps
+    VerifyNoEmptyDuplicates(result, current);
+    
+    // First move cannot be empty
+    if (current[0] == 0)
+        result[0] = MoveResult.EmptyInvalid;
+}
+```
+
+### Egg Moves
+
+Validates egg move inheritance:
+
+```csharp
+internal static class LearnVerifierEgg
+{
+    public static void Verify(
+        Span<MoveResult> result,
+        ReadOnlySpan<ushort> current,
+        IEncounterTemplate enc,
+        PKM pk
+    )
+    {
+        // Check each move
+        for (int i = 0; i < current.Length; i++)
+        {
+            var move = current[i];
+            if (move == 0) continue;
+            
+            // Must be: base egg move, inherited level-up, or TMHM
+            result[i] = VerifyEggMove(pk, enc, move);
+        }
+    }
+}
+```
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifierEgg.cs`
+
+### Relearn Moves
+
+Validates the 4 relearn moves (Gen 6+):
+
+```csharp
+internal static class LearnVerifierRelearn
+{
+    public static void Verify(
+        Span<MoveResult> result,
+        ReadOnlySpan<ushort> relearn,
+        PKM pk,
+        IEncounterTemplate enc
+    );
+}
+```
+
+**Valid Relearn Sources:**
+- Egg moves (bred Pokémon)
+- Event moves (Mystery Gift)
+- Initial moves (when hatched)
+- Evolved moves (from evolution)
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifierRelearn.cs`
+
+### Move History
+
+Validates moves across evolution chain:
+
+```csharp
+internal static class LearnVerifierHistory
+{
+    public static void Verify(
+        Span<MoveResult> result,
+        ReadOnlySpan<ushort> current,
+        IEncounterTemplate enc,
+        PKM pk,
+        EvolutionHistory history
+    )
+    {
+        // Check each move against all evolution stages
+        for (int i = 0; i < current.Length; i++)
+        {
+            var move = current[i];
+            if (move == 0) continue;
+            
+            // Try to find valid learn method
+            result[i] = FindLearnMethod(move, pk, enc, history);
+        }
+    }
+}
+```
+
+**Source:** `PKHeX.Core/Legality/LearnSource/Verify/LearnVerifierHistory.cs`
+
+## Special Cases
+
+### Form-Exclusive Moves
+
+Some moves are exclusive to specific forms:
+
+```csharp
+private static void FlagFormExclusiveMoves(
+    Span<MoveResult> result, 
+    ReadOnlySpan<ushort> current, 
+    PKM pk
+)
+{
+    // Hoopa: Hyperspace Hole (Confined) vs Hyperspace Fury (Unbound)
+    if (pk.Species == (int)Species.Hoopa)
+    {
+        var disallow = pk.Form != 0 
+            ? (ushort)Move.HyperspaceHole 
+            : (ushort)Move.HyperspaceFury;
+        var index = current.IndexOf(disallow);
+        if (index >= 0)
+            result[index] = MoveResult.Unobtainable(/* suggest other */);
+    }
+    
+    // Kyurem: Fusion Flare (White) vs Fusion Bolt (Black)
+    if (pk.Species == (int)Species.Kyurem)
+    {
+        // Form-specific validation
+    }
+}
+```
+
+### Smeargle Sketch
+
+Smeargle can learn any move via Sketch:
+
+```csharp
+if (pk.Species == (int)Species.Smeargle)
+{
+    // Any move is valid (except Sketch itself and Chatter)
+    if (move is not ((ushort)Move.Sketch or (ushort)Move.Chatter))
+        return new MoveLearnInfo(LearnMethod.Sketch, LearnEnvironment.None, 0);
+}
+```
+
+### Event Moves
+
+Mystery Gift events can have special moves:
+
+```csharp
+if (enc is MysteryGift mg && mg.Moves.Contains(move))
+    return new MoveLearnInfo(LearnMethod.Special, enc.Environment, 0);
+```
+
+### Shared Egg Moves (Gen 8+)
+
+Gen 8 introduced move sharing at picnic:
+
+```csharp
+// If same species, can learn egg moves from party member
+if (context >= EntityContext.Gen8)
+{
+    var eggMoves = source.GetEggMoves(species, form);
+    if (eggMoves.Contains(move))
+        return new MoveLearnInfo(LearnMethod.Shared, environment, 0);
+}
+```
+
+## Move Reminder
+
+Move Reminder allows relearning any level-up move:
+
+```csharp
+public interface IReminderSource
+{
+    bool GetCanRemind(PKM pk, ushort move);
+}
+```
+
+**Availability:**
+- Gen 1-2: Not available
+- Gen 3: Limited to current level moves
+- Gen 4-7: All level-up moves
+- Gen 8+: All level-up moves + egg moves
+
+## TM/HM Validation
+
+Technical Machines have generation-specific compatibility:
+
+```csharp
+public bool CanLearnTM(ushort species, byte form, ushort move)
+{
+    var index = GetTMHMIndex(move);
+    if (index < 0)
+        return false;
+    
+    var pi = PersonalInfo[species, form];
+    return pi.GetIsLearnTM(index);
+}
+```
+
+**TM Compatibility Changes:**
+- Gen 1-7: Species-specific TM flags
+- Gen 8: TRs (one-time use)
+- Gen 9: Crafted TMs (unlimited use)
+
+## Move Tutors
+
+Move tutors are game-specific:
+
+```csharp
+public ReadOnlySpan<ushort> GetTutorMoves(ushort species, byte form)
+{
+    // Game-specific tutor moves
+    return generation switch
+    {
+        3 => GetTutorMovesGen3(species, form),
+        4 => GetTutorMovesGen4(species, form),
+        5 => GetTutorMovesGen5(species, form),
+        6 => GetTutorMovesGen6(species, form),
+        7 => GetTutorMovesGen7(species, form),
+        8 => GetTutorMovesGen8(species, form),
+        _ => [],
+    };
+}
+```
+
+## Example: Full Move Validation
+
+```csharp
+public void ValidateMoves(PK9 pk)
+{
+    // Build encounter and evolution history
+    var enc = EncounterFinder.FindVerifiedEncounter(pk);
+    var history = EvolutionChain.GetEvolutionChainsAllGens(pk, enc);
+    
+    // Validate current moves
+    Span<MoveResult> currentResults = stackalloc MoveResult[4];
+    LearnVerifier.Verify(currentResults, pk, enc, history);
+    
+    // Validate relearn moves
+    Span<MoveResult> relearnResults = stackalloc MoveResult[4];
+    LearnVerifierRelearn.Verify(relearnResults, pk.RelearnMoves, pk, enc);
+    
+    // Check results
+    for (int i = 0; i < 4; i++)
+    {
+        if (!currentResults[i].Valid)
+            Console.WriteLine($"Invalid move {i}: {pk.GetMove(i)}");
+        
+        if (!relearnResults[i].Valid)
+            Console.WriteLine($"Invalid relearn {i}: {pk.GetRelearnMove(i)}");
+    }
+}
+```
+
+## Related Documentation
+
+- [Encounters](/api/legality/encounters) - Encounter matching
+- [Evolutions](/api/legality/evolutions) - Evolution chains
+- [Verifiers](/api/legality/verifiers) - Other validation checks

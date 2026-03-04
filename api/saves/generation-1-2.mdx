@@ -1,0 +1,254 @@
+---
+title: Generation 1 & 2 Save Files
+description: SAV1 and SAV2 save file implementations for Game Boy games
+---
+
+# Generation 1 & 2 Save Files
+
+Save file implementations for Game Boy Pokemon games (Red, Blue, Yellow, Gold, Silver, Crystal).
+
+## SAV1
+
+Generation 1 save file object for Red, Blue, and Yellow versions.
+
+### Class Definition
+
+```csharp
+public sealed class SAV1 : SaveFile, ILangDeviantSave, IEventFlagArray, IEventWorkArray<byte>, 
+    IBoxDetailNameRead, IDaycareStorage
+```
+
+**Source:** `PKHeX.Core/Saves/SAV1.cs`
+
+### Storage Specifications
+
+| Property | Japanese | International |
+|----------|----------|---------------|
+| **Box Count** | 8 | 12 |
+| **Box Slot Count** | 30 | 20 |
+| **Party Size** | 6 | 6 |
+| **Daycare Slots** | 1 | 1 |
+
+### Key Properties
+
+#### Version Detection
+
+```csharp
+public bool Japanese { get; } // True for Japanese saves
+public bool IsVirtualConsole { get; } // True if from Virtual Console
+public string SaveRevisionString { get; } // "J" or "U" + "VC" or "GB"
+```
+
+#### Trainer Information
+
+```csharp
+public override string OT { get; set; }
+public override ushort TID16 { get; set; }
+public override byte Gender { get; set; } // Always 0 (male)
+public string Rival { get; set; }
+public byte Starter { get; set; } // Starting Pokemon
+```
+
+#### Game Progress
+
+```csharp
+public int Badges { get; set; } // Badge bitflags
+public bool PlayedMaximum { get; set; } // 255:00:00.00 flag
+public byte PlayedFrames { get; set; }
+public byte GBPrinterBrightness { get; set; } // Yellow only
+```
+
+#### Currency
+
+```csharp
+public override uint Money { get; set; } // Max: 999,999
+public uint Coin { get; set; } // Max: 9,999
+public uint PikaBeachScore { get; set; } // Yellow only
+```
+
+#### Special Features
+
+```csharp
+// Yellow-specific
+public byte PikaFriendship { get; set; }
+public bool IsSilphLaprasReceived { get; set; }
+
+// Hall of Fame
+public HallOfFameReader1 HallOfFame { get; }
+public byte HallOfFameCount { get; set; }
+```
+
+### Event System
+
+```csharp
+public int EventFlagCount { get; } // 2,560 flags
+public int EventWorkCount { get; } // 256 work variables
+public bool GetEventFlag(int flagNumber)
+public void SetEventFlag(int flagNumber, bool value)
+public byte GetWork(int index)
+public void SetWork(int index, byte value)
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public bool BoxesInitialized { get; set; }
+public string GetBoxName(int box) // Returns default names
+```
+
+---
+
+## SAV2
+
+Generation 2 save file object for Gold, Silver, and Crystal versions.
+
+### Class Definition
+
+```csharp
+public sealed class SAV2 : SaveFile, ILangDeviantSave, IEventFlagArray, IEventWorkArray<byte>, 
+    IBoxDetailName, IDaycareStorage, IDaycareEggState
+```
+
+**Source:** `PKHeX.Core/Saves/SAV2.cs`
+
+### Storage Specifications
+
+| Property | Japanese | International | Korean |
+|----------|----------|---------------|--------|
+| **Box Count** | 9 | 14 | 14 |
+| **Box Slot Count** | 30 | 20 | 20 |
+| **Party Size** | 6 | 6 | 6 |
+| **Daycare Slots** | 2 + Egg | 2 + Egg | 2 + Egg |
+
+### Key Properties
+
+#### Version Detection
+
+```csharp
+public bool Japanese { get; }
+public bool Korean { get; }
+public bool IsVirtualConsole { get; }
+public string SaveRevisionString { get; } // "J", "U", or "K" + "VC" or "GB"
+```
+
+#### Trainer Information
+
+```csharp
+public override string OT { get; set; }
+public string Rival { get; set; }
+public override byte Gender { get; set; } // Crystal only
+public byte Palette { get; set; }
+public int Badges { get; set; } // 16-bit for both regions
+```
+
+#### Options
+
+```csharp
+public bool BattleEffects { get; set; }
+public bool BattleStyleSwitch { get; set; }
+public int Sound { get; set; } // Stereo/Mono
+public int TextSpeed { get; set; }
+public int TextBoxFrame { get; set; }
+public byte GBPrinterBrightness { get; set; }
+public bool MenuAccountOn { get; set; }
+```
+
+#### Currency
+
+```csharp
+public override uint Money { get; set; } // Max: 999,999
+public uint Coin { get; set; } // Max: 9,999
+public byte BlueCardPoints { get; set; } // Crystal only
+```
+
+### Event System
+
+```csharp
+public int EventFlagCount { get; } // 2,000 flags
+public int EventWorkCount { get; } // 256 work variables
+public bool GetEventFlag(int flagNumber)
+public void SetEventFlag(int flagNumber, bool value)
+public byte GetWork(int index)
+public void SetWork(int index, byte value)
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public Memory<byte> GetDaycareSlot(int slot)
+public Memory<byte> GetDaycareEgg()
+public bool IsDaycareOccupied(int slot)
+public void SetDaycareOccupied(int slot, bool occupied)
+public bool IsEggAvailable { get; set; }
+```
+
+### Pokedex - Unown Features
+
+```csharp
+public int UnownUnlocked { get; set; } // Bitflags for letter groups
+public void UnownUnlockAll() // Unlock all 4 groups
+public bool UnownUnlocked0 { get; set; } // A-K
+public bool UnownUnlocked1 { get; set; } // L-R
+public bool UnownUnlocked2 { get; set; } // S-W
+public bool UnownUnlocked3 { get; set; } // X-Z
+public int UnownFirstSeen { get; set; } // Form shown in Pokedex
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+```
+
+### Mystery Gift (Crystal)
+
+```csharp
+public byte MysteryGiftItem { get; set; }
+public bool IsMysteryGiftUnlocked { get; set; }
+public void EnableGSBallMobileEvent() // Virtual Console feature
+public bool IsEnabledGSBallMobileEvent { get; }
+```
+
+### GB Mobile (Japanese Crystal)
+
+```csharp
+public bool IsGBMobileAvailable { get; }
+public bool IsGBMobileEnabled { get; }
+public GBMobileCableColor GBMobileCable { get; set; }
+```
+
+### Miscellaneous
+
+```csharp
+public ushort ResetKey { get; } // Password for clock reset
+public void ResetRTC() // Set "Time Not Set" flag
+public void UnlockAllDecorations()
+```
+
+## Technical Notes
+
+### String Handling
+
+Both Gen 1 and Gen 2 use custom character encodings:
+
+- **Gen 1**: Uses `StringConverter1` with special terminator handling
+- **Gen 2**: Uses `StringConverter2` with ligature support (non-Korean)
+- **Gen 2 Korean**: Uses separate `StringConverter2KOR`
+
+### Data Storage
+
+Gen 1 and Gen 2 use compressed list formats for Pokemon storage:
+
+- **PokeList1**: Gen 1 list packing/unpacking
+- **PokeList2**: Gen 2 list packing/unpacking
+- Stores species count, species list, then Pokemon data
+- Separate formats for box storage vs party storage
+
+### Checksums
+
+- **Gen 1**: Single 8-bit inverted sum checksum
+- **Gen 2**: Dual 16-bit checksums stored in two locations

@@ -1,0 +1,401 @@
+---
+title: "Ribbons and Marks"
+description: "Understanding the ribbon and mark system across generations"
+icon: "award"
+---
+
+## Overview
+
+Ribbons and marks are special achievements and characteristics that Pokémon can earn or possess. PKHeX provides comprehensive support for managing ribbons and marks across all generations, with the `RibbonIndex` enumeration serving as the central system for Gen 8+.
+
+## Ribbon System
+
+### Ribbon Categories
+
+Ribbons are organized into several categories:
+
+- **Champion Ribbons**: Region championship ribbons (Kalos, Sinnoh, Galar, Alola, Paldea)
+- **Contest Ribbons**: Contest performance ribbons (Coolness, Beauty, Cuteness, Cleverness, Toughness)
+- **Battle Ribbons**: Battle facility ribbons (Battle Tower, Battle Tree, Master Rank)
+- **Event Ribbons**: Special event ribbons (Wishing, Birthday, Classic, Premier)
+- **Memory Ribbons**: Memory contest and battle count ribbons
+- **Friendship Ribbons**: Ribbons earned through friendship and training
+
+### RibbonIndex Enumeration
+
+The `RibbonIndex` enum provides a unified system for accessing ribbons:
+
+```csharp
+using PKHeX.Core;
+using static PKHeX.Core.RibbonIndex;
+
+// All ribbons are indexed from Gen 8+ standards
+public enum RibbonIndex : byte
+{
+    // Champion ribbons
+    ChampionKalos,
+    ChampionG3,
+    ChampionSinnoh,
+    ChampionAlola,
+    ChampionGalar,
+    ChampionPaldea,
+    
+    // Contest ribbons
+    MasterCoolness,
+    MasterBeauty,
+    MasterCuteness,
+    MasterCleverness,
+    MasterToughness,
+    
+    // Battle ribbons
+    BattleTreeGreat,
+    BattleTreeMaster,
+    TowerMaster,
+    MasterRank,
+    
+    // Event ribbons
+    Event,
+    Birthday,
+    Special,
+    Wishing,
+    Classic,
+    Premier,
+    
+    // And many more...
+}
+```
+
+### Working with Ribbons
+
+```csharp
+// Check if a Pokémon has a specific ribbon
+if (pk is IRibbonIndex ribbonIndex)
+{
+    bool hasChampion = ribbonIndex.GetRibbonIndex(RibbonIndex.ChampionGalar);
+    Console.WriteLine($"Has Galar Champion Ribbon: {hasChampion}");
+    
+    // Set a ribbon
+    ribbonIndex.SetRibbonIndex(RibbonIndex.TowerMaster, true);
+    Console.WriteLine("Awarded Tower Master ribbon!");
+}
+```
+
+### Generation-Specific Ribbons
+
+```csharp
+// Gen 3 ribbons
+if (pk is IRibbonSetEvent3 gen3Ribbons)
+{
+    gen3Ribbons.RibbonEarth = true;
+    gen3Ribbons.RibbonNational = true;
+    gen3Ribbons.RibbonCountry = true;
+}
+
+// Gen 4 ribbons
+if (pk is IRibbonSetEvent4 gen4Ribbons)
+{
+    gen4Ribbons.RibbonClassic = true;
+    gen4Ribbons.RibbonWishing = true;
+    gen4Ribbons.RibbonPremier = true;
+    gen4Ribbons.RibbonEvent = true;
+    gen4Ribbons.RibbonBirthday = true;
+}
+
+// Gen 6+ ribbons
+if (pk is IRibbonSetCommon6 gen6Ribbons)
+{
+    gen6Ribbons.RibbonChampionKalos = true;
+    gen6Ribbons.RibbonChampionG6Hoenn = true;
+    gen6Ribbons.RibbonContestStar = true;
+    gen6Ribbons.RibbonMasterCoolness = true;
+    gen6Ribbons.RibbonMasterBeauty = true;
+}
+
+// Gen 7 ribbons
+if (pk is IRibbonSetCommon7 gen7Ribbons)
+{
+    gen7Ribbons.RibbonChampionAlola = true;
+    gen7Ribbons.RibbonBattleRoyale = true;
+    gen7Ribbons.RibbonBattleTreeGreat = true;
+    gen7Ribbons.RibbonBattleTreeMaster = true;
+}
+
+// Gen 8 ribbons
+if (pk is IRibbonSetCommon8 gen8Ribbons)
+{
+    gen8Ribbons.RibbonChampionGalar = true;
+    gen8Ribbons.RibbonTowerMaster = true;
+    gen8Ribbons.RibbonMasterRank = true;
+}
+
+// Gen 9 ribbons
+if (pk is IRibbonSetCommon9 gen9Ribbons)
+{
+    gen9Ribbons.RibbonChampionPaldea = true;
+    gen9Ribbons.RibbonOnceInALifetime = true;
+    gen9Ribbons.RibbonPartner = true;
+}
+```
+
+## Marks System (Gen 8+)
+
+Marks are special characteristics introduced in Generation 8 that indicate how or where a Pokémon was encountered.
+
+### Mark Categories
+
+1. **Time Marks**: Lunchtime, Sleepy-Time, Dusk, Dawn
+2. **Weather Marks**: Cloudy, Rainy, Stormy, Snowy, Blizzard, Dry, Sandstorm, Misty
+3. **Special Marks**: Destiny, Fishing, Curry
+4. **Rarity Marks**: Uncommon, Rare
+5. **Personality Marks**: 28 different personality traits (Rowdy, Angry, Smiley, etc.)
+6. **Gen 9 Marks**: Jumbo, Mini, Itemfinder, Partner, Gourmand, Alpha, Mightiest, Titan
+
+### Working with Marks
+
+```csharp
+using PKHeX.Core;
+
+if (pk is IRibbonSetMark8 marks)
+{
+    // Time marks
+    marks.RibbonMarkLunchtime = true;  // Found around lunchtime
+    marks.RibbonMarkDawn = true;       // Found at dawn
+    
+    // Weather marks
+    marks.RibbonMarkCloudy = true;     // Found in cloudy weather
+    marks.RibbonMarkStormy = true;     // Found in a storm
+    
+    // Special encounter marks
+    marks.RibbonMarkDestiny = true;    // Fateful encounter mark
+    marks.RibbonMarkFishing = true;    // Caught by fishing
+    marks.RibbonMarkCurry = true;      // Found attracted to curry
+    
+    // Rarity marks
+    marks.RibbonMarkRare = true;       // Rare mark (1/1000 chance)
+    marks.RibbonMarkUncommon = true;   // Uncommon mark (1/100 chance)
+    
+    // Personality marks (examples)
+    marks.RibbonMarkRowdy = true;
+    marks.RibbonMarkAngry = true;
+    marks.RibbonMarkSmiley = true;
+    marks.RibbonMarkJoyful = true;
+    marks.RibbonMarkFerocious = true;
+}
+```
+
+### Checking for Encounter Marks
+
+```csharp
+// Check if Pokémon has any wild encounter mark
+if (pk is IRibbonIndex ribbonIdx)
+{
+    bool hasEncounterMark = ribbonIdx.HasEncounterMark();
+    Console.WriteLine($"Has encounter mark: {hasEncounterMark}");
+}
+
+// Check for specific weather marks
+if (pk is IRibbonSetMark8 marks)
+{
+    if (marks.HasWeatherMark(out RibbonIndex weatherRibbon))
+    {
+        Console.WriteLine($"Has weather mark: {weatherRibbon}");
+    }
+}
+```
+
+### Generation 9 Marks
+
+```csharp
+if (pk is IRibbonSetMark9 gen9Marks)
+{
+    gen9Marks.RibbonMarkJumbo = true;      // Jumbo-sized Pokémon
+    gen9Marks.RibbonMarkMini = true;       // Mini-sized Pokémon
+    gen9Marks.RibbonMarkItemfinder = true; // Found hidden item
+    gen9Marks.RibbonMarkPartner = true;    // Partner Pokémon
+    gen9Marks.RibbonMarkGourmand = true;   // Food-related mark
+    gen9Marks.RibbonMarkAlpha = true;      // From Legends Arceus
+    gen9Marks.RibbonMarkMightiest = true;  // Mightiest Mark
+    gen9Marks.RibbonMarkTitan = true;      // Titan Mark
+}
+```
+
+## Affixed Ribbons/Marks
+
+In Gen 8+, Pokémon can have one ribbon or mark "affixed" for display:
+
+```csharp
+if (pk is IRibbonSetAffixed affixed)
+{
+    // Get the currently affixed ribbon index
+    int affixedValue = affixed.AffixedRibbon;
+    
+    if (affixedValue >= 0)
+    {
+        var ribbon = (RibbonIndex)affixedValue;
+        Console.WriteLine($"Affixed ribbon: {ribbon}");
+    }
+    else if (affixedValue == -1)
+    {
+        Console.WriteLine("No ribbon affixed");
+    }
+    
+    // Set an affixed ribbon
+    affixed.AffixedRibbon = (int)RibbonIndex.ChampionGalar;
+    Console.WriteLine("Set Galar Champion as affixed ribbon");
+}
+```
+
+## Copying Ribbons Between Pokémon
+
+```csharp
+// Copy all Gen 8 marks from one Pokémon to another
+if (sourcePk is IRibbonSetMark8 sourceMarks && destPk is IRibbonSetMark8 destMarks)
+{
+    sourceMarks.CopyRibbonSetMark8(destMarks);
+    Console.WriteLine("Copied all marks to destination Pokémon");
+}
+```
+
+## Counting Ribbons and Marks
+
+```csharp
+// Count total ribbons
+if (pk is IRibbonSetRibbons ribbonSet)
+{
+    int ribbonCount = ribbonSet.RibbonCount;
+    Console.WriteLine($"Total ribbons: {ribbonCount}");
+}
+
+// Count marks separately
+if (pk is IRibbonSetMarks markSet)
+{
+    int totalMarks = markSet.MarkCount;
+    int ribbonMarks = markSet.RibbonMarkCount;
+    Console.WriteLine($"Total marks: {totalMarks}");
+    Console.WriteLine($"Ribbon marks: {ribbonMarks}");
+}
+```
+
+## Ribbon Index Limits
+
+```csharp
+using PKHeX.Core;
+using static PKHeX.Core.RibbonIndexExtensions;
+
+// Maximum ribbon indexes for each generation
+RibbonIndex maxGen8 = MAX_G8;   // MarkSlump
+RibbonIndex maxGen8a = MAX_G8A; // Hisui (Legends Arceus)
+RibbonIndex maxGen8b = MAX_G8B; // TwinklingStar (BD/SP)
+RibbonIndex maxGen9 = MAX_G9;   // Partner
+
+Console.WriteLine($"Gen 8 max: {maxGen8}");
+Console.WriteLine($"Gen 8A max: {maxGen8a}");
+Console.WriteLine($"Gen 8B max: {maxGen8b}");
+Console.WriteLine($"Gen 9 max: {maxGen9}");
+```
+
+## Mystery Gift Ribbons
+
+Mystery Gift Pokémon can come with ribbons:
+
+```csharp
+if (gift is WC8 wc8 && wc8.IsEntity)
+{
+    // Mystery Gifts implement ribbon interfaces
+    if (wc8 is IRibbonSetEvent3 event3)
+    {
+        event3.RibbonNational = true;
+    }
+    
+    if (wc8 is IRibbonSetCommon8 common8)
+    {
+        common8.RibbonChampionGalar = true;
+    }
+    
+    // Convert to PKM to transfer ribbons
+    var pk = wc8.ConvertToPKM(trainer);
+    // Ribbons are automatically transferred
+}
+```
+
+## Practical Examples
+
+### Award All Contest Ribbons
+
+```csharp
+void AwardAllContestRibbons(PKM pk)
+{
+    if (pk is IRibbonSetCommon6 ribbons)
+    {
+        ribbons.RibbonContestStar = true;
+        ribbons.RibbonMasterCoolness = true;
+        ribbons.RibbonMasterBeauty = true;
+        ribbons.RibbonMasterCuteness = true;
+        ribbons.RibbonMasterCleverness = true;
+        ribbons.RibbonMasterToughness = true;
+    }
+}
+```
+
+### Check if Pokémon is Wild-Caught
+
+```csharp
+bool IsWildCaught(PKM pk)
+{
+    if (pk is IRibbonIndex ribbonIdx)
+    {
+        // Wild Pokémon in Gen 8+ can have encounter marks
+        return ribbonIdx.HasEncounterMark();
+    }
+    return false;
+}
+```
+
+### Generate Random Mark
+
+```csharp
+void ApplyRandomPersonalityMark(PKM pk)
+{
+    if (pk is not IRibbonSetMark8 marks)
+        return;
+    
+    var personalityMarks = new[]
+    {
+        RibbonIndex.MarkRowdy, RibbonIndex.MarkAbsentMinded,
+        RibbonIndex.MarkJittery, RibbonIndex.MarkExcited,
+        RibbonIndex.MarkCharismatic, RibbonIndex.MarkCalmness,
+        RibbonIndex.MarkIntense, RibbonIndex.MarkZonedOut,
+        RibbonIndex.MarkJoyful, RibbonIndex.MarkAngry,
+        RibbonIndex.MarkSmiley, RibbonIndex.MarkFerocious,
+        // ... etc
+    };
+    
+    var random = new Random();
+    var selectedMark = personalityMarks[random.Next(personalityMarks.Length)];
+    
+    if (pk is IRibbonIndex ribbonIdx)
+    {
+        ribbonIdx.SetRibbonIndex(selectedMark, true);
+    }
+}
+```
+
+## Best Practices
+
+<Tip>
+  Use `IRibbonIndex` interface for Gen 8+ unified ribbon access. It provides the most consistent API across different ribbon types.
+</Tip>
+
+<Warning>
+  Marks can only exist on Pokémon caught in Gen 8 or later. Don't add marks to transferred Pokémon from earlier generations unless they're specifically event-distributed.
+</Warning>
+
+<Note>
+  Some ribbons are mutually exclusive or have special requirements. For example, contest ribbons can only be earned in specific games that have contests.
+</Note>
+
+## Related Resources
+
+- [PKM Data Structures](/api/pkm-structure)
+- [Mystery Gift Files](/guides/advanced/mystery-gifts)
+- [Legality Analysis](/guides/advanced/legality-checking)

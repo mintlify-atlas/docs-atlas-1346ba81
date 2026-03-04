@@ -1,0 +1,581 @@
+---
+title: ShowdownSet Class
+description: Import and export Pokémon data in Pokémon Showdown text format
+---
+
+## Overview
+
+The `ShowdownSet` class provides functionality for importing and exporting Pokémon data in the Pokémon Showdown text format. This is useful for sharing Pokémon sets, importing competitive teams, and converting between PKHeX and Showdown formats.
+
+**Namespace:** `PKHeX.Core`
+
+**Inheritance:** `Object` → `ShowdownSet`
+
+**Implements:** `IBattleTemplate`
+
+## Constructors
+
+<ParamField path="ShowdownSet(ReadOnlySpan<char> input, BattleTemplateLocalization? localization = null)" type="constructor">
+  Creates a new ShowdownSet from Showdown format text.
+  
+  **Parameters:**
+  - `input` (ReadOnlySpan&lt;char&gt;): Showdown format text (can be multi-line)
+  - `localization` (BattleTemplateLocalization?): Language localization settings (default: English)
+</ParamField>
+
+<ParamField path="ShowdownSet(IEnumerable<string> lines, BattleTemplateLocalization? localization = null)" type="constructor">
+  Creates a new ShowdownSet from an enumerable of lines.
+  
+  **Parameters:**
+  - `lines` (IEnumerable&lt;string&gt;): Lines of Showdown format text
+  - `localization` (BattleTemplateLocalization?): Language localization settings (default: English)
+</ParamField>
+
+<ParamField path="ShowdownSet(PKM pk, BattleTemplateLocalization? localization = null)" type="constructor">
+  Creates a new ShowdownSet from a PKM object.
+  
+  **Parameters:**
+  - `pk` (PKM): Pokémon to convert to Showdown format
+  - `localization` (BattleTemplateLocalization?): Language localization settings (default: English)
+</ParamField>
+
+## Properties
+
+### Basic Information
+
+<ResponseField name="Species" type="ushort">
+  Gets the species ID.
+</ResponseField>
+
+<ResponseField name="Form" type="byte">
+  Gets the form index.
+</ResponseField>
+
+<ResponseField name="FormName" type="string">
+  Gets the form name as text.
+</ResponseField>
+
+<ResponseField name="Nickname" type="string">
+  Gets the nickname.
+</ResponseField>
+
+<ResponseField name="Gender" type="byte?">
+  Gets the gender (0 = Male, 1 = Female, 2 = Genderless, null = unspecified).
+</ResponseField>
+
+### Battle Properties
+
+<ResponseField name="Level" type="byte">
+  Gets the level (default: 100).
+</ResponseField>
+
+<ResponseField name="Shiny" type="bool">
+  Gets whether the Pokémon is shiny.
+</ResponseField>
+
+<ResponseField name="HeldItem" type="int">
+  Gets the held item ID.
+</ResponseField>
+
+<ResponseField name="Ability" type="int">
+  Gets the ability ID.
+</ResponseField>
+
+<ResponseField name="Nature" type="Nature">
+  Gets the nature.
+</ResponseField>
+
+<ResponseField name="Friendship" type="byte">
+  Gets the friendship value (default: 255).
+</ResponseField>
+
+### Stats
+
+<ResponseField name="EVs" type="int[]">
+  Gets the Effort Values array (HP, ATK, DEF, SPE, SPA, SPD).
+  
+  **Default:** [0, 0, 0, 0, 0, 0]
+</ResponseField>
+
+<ResponseField name="IVs" type="int[]">
+  Gets the Individual Values array (HP, ATK, DEF, SPE, SPA, SPD).
+  
+  **Default:** [31, 31, 31, 31, 31, 31]
+</ResponseField>
+
+### Moves
+
+<ResponseField name="Moves" type="ushort[]">
+  Gets the move IDs array (up to 4 moves).
+</ResponseField>
+
+<ResponseField name="HiddenPowerType" type="sbyte">
+  Gets the Hidden Power type (if applicable, -1 if not specified).
+</ResponseField>
+
+### Generation-Specific
+
+<ResponseField name="Context" type="EntityContext">
+  Gets the generation/game context.
+</ResponseField>
+
+<ResponseField name="CanGigantamax" type="bool">
+  Gets whether the Pokémon can Gigantamax (Gen 8).
+</ResponseField>
+
+<ResponseField name="DynamaxLevel" type="byte">
+  Gets the Dynamax level (Gen 8, default: 10).
+</ResponseField>
+
+<ResponseField name="TeraType" type="MoveType">
+  Gets the Tera Type (Gen 9).
+</ResponseField>
+
+### Validation
+
+<ResponseField name="InvalidLines" type="List<BattleTemplateParseError>">
+  Gets the list of lines that failed to parse.
+  
+  **Remarks:** Check this after parsing to see if there were any issues.
+</ResponseField>
+
+## Methods
+
+### Export Methods
+
+<ParamField path="GetText(string language)" type="method">
+  Gets the Showdown format text representation.
+  
+  **Parameters:**
+  - `language` (string): Language code (default: "en")
+  
+  **Returns:** string - Showdown format text
+</ParamField>
+
+<ParamField path="GetText(LanguageID language)" type="method">
+  Gets the Showdown format text in the specified language.
+  
+  **Parameters:**
+  - `language` (LanguageID): Language ID
+  
+  **Returns:** string - Showdown format text
+</ParamField>
+
+<ParamField path="GetText(in BattleTemplateExportSettings settings)" type="method">
+  Gets the Showdown format text with custom export settings.
+  
+  **Parameters:**
+  - `settings` (BattleTemplateExportSettings): Export configuration
+  
+  **Returns:** string - Showdown format text
+</ParamField>
+
+<ParamField path="GetSetLines(string language)" type="method">
+  Gets all lines of the Showdown format as a list.
+  
+  **Parameters:**
+  - `language` (string): Language code (default: "en")
+  
+  **Returns:** List&lt;string&gt; - Lines of Showdown text
+</ParamField>
+
+<ParamField path="GetSetLines(in BattleTemplateExportSettings settings)" type="method">
+  Gets all lines with custom export settings.
+  
+  **Parameters:**
+  - `settings` (BattleTemplateExportSettings): Export configuration
+  
+  **Returns:** List&lt;string&gt; - Lines of Showdown text
+</ParamField>
+
+<ParamField path="GetSetLines(List<string> result, in BattleTemplateExportSettings settings)" type="method">
+  Populates a list with Showdown format lines.
+  
+  **Parameters:**
+  - `result` (List&lt;string&gt;): List to populate
+  - `settings` (BattleTemplateExportSettings): Export configuration
+</ParamField>
+
+### Utility Methods
+
+<ParamField path="InterpretAsPreview(PKM pk)" type="method">
+  Forces properties to indicate the set for preview display.
+  
+  **Parameters:**
+  - `pk` (PKM): Pokémon to preview
+  
+  **Remarks:** For Generation 1/2, this will set Nature based on experience.
+</ParamField>
+
+## Static Methods
+
+<ParamField path="GetStringStats<T>(ReadOnlySpan<T> stats, T ignoreValue, StatDisplayConfig statNames)" type="static method">
+  Gets the string representation of stats.
+  
+  **Type Parameters:**
+  - `T`: Stat value type
+  
+  **Parameters:**
+  - `stats` (ReadOnlySpan&lt;T&gt;): Stats array
+  - `ignoreValue` (T): Value to ignore (e.g., 0 for EVs, 31 for IVs)
+  - `statNames` (StatDisplayConfig): Stat display configuration
+  
+  **Returns:** string - Formatted stats string
+</ParamField>
+
+<ParamField path="GetStringStatsNatureAmp<T>(ReadOnlySpan<T> stats, T ignoreValue, StatDisplayConfig statNames, Nature nature)" type="static method">
+  Gets stats string with nature amplification indicators.
+  
+  **Type Parameters:**
+  - `T`: Stat value type
+  
+  **Parameters:**
+  - `stats` (ReadOnlySpan&lt;T&gt;): Stats array
+  - `ignoreValue` (T): Value to ignore
+  - `statNames` (StatDisplayConfig): Stat display configuration
+  - `nature` (Nature): Nature for +/- indicators
+  
+  **Returns:** string - Formatted stats string with +/- indicators
+</ParamField>
+
+## Usage Examples
+
+### Importing from Showdown Format
+
+```csharp
+using PKHeX.Core;
+
+// Showdown format text
+string showdownText = @"
+Pikachu (M) @ Light Ball
+Ability: Lightning Rod
+Level: 50
+Shiny: Yes
+EVs: 4 HP / 252 Atk / 252 Spe
+Jolly Nature
+- Volt Tackle
+- Iron Tail
+- Knock Off
+- Fake Out
+";
+
+// Parse the set
+var set = new ShowdownSet(showdownText);
+
+// Check for parsing errors
+if (set.InvalidLines.Any())
+{
+    Console.WriteLine("Parsing errors:");
+    foreach (var error in set.InvalidLines)
+    {
+        Console.WriteLine($"  {error.Type}: {error.Line}");
+    }
+}
+
+// Access properties
+Console.WriteLine($"Species: {set.Species}");
+Console.WriteLine($"Level: {set.Level}");
+Console.WriteLine($"Ability: {set.Ability}");
+Console.WriteLine($"Nature: {set.Nature}");
+Console.WriteLine($"Shiny: {set.Shiny}");
+
+// Check EVs
+var evNames = new[] { "HP", "Atk", "Def", "Spe", "SpA", "SpD" };
+for (int i = 0; i < 6; i++)
+{
+    if (set.EVs[i] > 0)
+        Console.WriteLine($"{evNames[i]}: {set.EVs[i]}");
+}
+
+// Check moves
+for (int i = 0; i < set.Moves.Length; i++)
+{
+    if (set.Moves[i] != 0)
+        Console.WriteLine($"Move {i + 1}: {set.Moves[i]}");
+}
+```
+
+### Converting PKM to Showdown Format
+
+```csharp
+// Get a Pokémon from somewhere
+var pk = sav.GetBoxSlotAtIndex(0, 0);
+
+// Convert to Showdown format
+var set = new ShowdownSet(pk);
+
+// Get the text representation
+string showdownText = set.Text;
+Console.WriteLine(showdownText);
+
+// Save to file
+File.WriteAllText("pokemon.txt", showdownText);
+
+// Or get as individual lines
+var lines = set.GetSetLines();
+foreach (var line in lines)
+{
+    Console.WriteLine(line);
+}
+```
+
+### Creating a Set Programmatically
+
+```csharp
+// Start with an empty set
+var set = new ShowdownSet("");
+
+// Note: ShowdownSet properties are private setters,
+// so you need to parse from text or convert from PKM.
+// To create programmatically, build the text:
+
+var sb = new System.Text.StringBuilder();
+sb.AppendLine("Charizard @ Choice Band");
+sb.AppendLine("Ability: Blaze");
+sb.AppendLine("Level: 50");
+sb.AppendLine("Shiny: Yes");
+sb.AppendLine("EVs: 252 Atk / 4 SpD / 252 Spe");
+sb.AppendLine("Jolly Nature");
+sb.AppendLine("- Flare Blitz");
+sb.AppendLine("- Dragon Claw");
+sb.AppendLine("- Earthquake");
+sb.AppendLine("- Thunder Punch");
+
+var set = new ShowdownSet(sb.ToString());
+```
+
+### Converting Set to PKM
+
+```csharp
+using PKHeX.Core.AutoMod;
+
+// Parse Showdown set
+var set = new ShowdownSet(showdownText);
+
+// Convert to PKM using AutoLegalityMod (if available)
+var sav = SaveUtil.GetVariantSAV(saveData);
+var pk = sav.GetLegal(set, out var result);
+
+if (result == LegalizationResult.Regenerated)
+{
+    Console.WriteLine("Successfully created legal Pokémon!");
+    sav.SetBoxSlotAtIndex(pk, 0, 0);
+}
+else
+{
+    Console.WriteLine($"Failed to create legal Pokémon: {result}");
+}
+```
+
+### Batch Import from Text File
+
+```csharp
+// Read a file with multiple Pokémon sets
+string fileContent = File.ReadAllText("team.txt");
+
+// Split by double newlines (Showdown format separator)
+var setTexts = fileContent.Split(new[] { "\n\n", "\r\n\r\n" }, 
+    StringSplitOptions.RemoveEmptyEntries);
+
+var sets = new List<ShowdownSet>();
+
+foreach (var setText in setTexts)
+{
+    var set = new ShowdownSet(setText);
+    
+    if (set.Species == 0)
+    {
+        Console.WriteLine($"Failed to parse set:\n{setText}");
+        continue;
+    }
+    
+    if (set.InvalidLines.Any())
+    {
+        Console.WriteLine($"Set has errors:\n{setText}");
+        foreach (var error in set.InvalidLines)
+        {
+            Console.WriteLine($"  Error: {error.Line}");
+        }
+    }
+    
+    sets.Add(set);
+}
+
+Console.WriteLine($"Successfully parsed {sets.Count} sets");
+```
+
+### Export with Custom Settings
+
+```csharp
+var pk = GetPokemon();
+var set = new ShowdownSet(pk);
+
+// Create custom export settings
+var settings = new BattleTemplateExportSettings
+{
+    Language = "en",
+    Moves = MoveDisplayStyle.Directional, // Use ↑↓←→ instead of hyphens
+    StatsEVs = StatDisplayConfig.GetShowdownNature(), // Include nature amps in EVs
+};
+
+// Export with settings
+string customText = set.GetText(settings);
+Console.WriteLine(customText);
+
+// Export in different language
+string japaneseText = set.GetText(LanguageID.Japanese);
+Console.WriteLine(japaneseText);
+```
+
+### Working with Generation-Specific Features
+
+```csharp
+// Gen 8 - Gigantamax
+string gen8Text = @"
+Cinderace-Gmax @ Life Orb
+Ability: Libero
+Level: 50
+Gigantamax: Yes
+Dynamax Level: 10
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Pyro Ball
+- High Jump Kick
+- U-turn
+- Sucker Punch
+";
+
+var set = new ShowdownSet(gen8Text);
+Console.WriteLine($"Can Gigantamax: {set.CanGigantamax}");
+Console.WriteLine($"Dynamax Level: {set.DynamaxLevel}");
+Console.WriteLine($"Context: {set.Context}");
+
+// Gen 9 - Tera Type
+string gen9Text = @"
+Garchomp @ Focus Sash
+Ability: Rough Skin
+Level: 50
+Tera Type: Fire
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Earthquake
+- Dragon Claw
+- Stone Edge
+- Swords Dance
+";
+
+var set2 = new ShowdownSet(gen9Text);
+Console.WriteLine($"Tera Type: {set2.TeraType}");
+Console.WriteLine($"Context: {set2.Context}");
+```
+
+### Hidden Power Type Handling
+
+```csharp
+string hpText = @"
+Manectric @ Life Orb
+Ability: Lightning Rod
+Level: 50
+IVs: 31 Atk / 30 Def / 30 SpA / 30 SpD / 30 Spe
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Thunderbolt
+- Hidden Power [Ice]
+- Overheat
+- Volt Switch
+";
+
+var set = new ShowdownSet(hpText);
+
+if (set.HiddenPowerType >= 0)
+{
+    Console.WriteLine($"Hidden Power Type: {set.HiddenPowerType}");
+    
+    // IVs are automatically adjusted for the HP type
+    Console.WriteLine("IVs adjusted for Hidden Power:");
+    for (int i = 0; i < 6; i++)
+    {
+        Console.WriteLine($"  {new[] { "HP", "Atk", "Def", "Spe", "SpA", "SpD" }[i]}: {set.IVs[i]}");
+    }
+}
+```
+
+### Validating Parsed Sets
+
+```csharp
+public bool ValidateShowdownSet(ShowdownSet set)
+{
+    // Check for parsing errors
+    if (set.InvalidLines.Any())
+    {
+        Console.WriteLine("Parse errors found:");
+        foreach (var error in set.InvalidLines)
+        {
+            Console.WriteLine($"  {error.Type}: {error.Line}");
+        }
+        return false;
+    }
+    
+    // Validate species
+    if (set.Species == 0)
+    {
+        Console.WriteLine("Invalid species");
+        return false;
+    }
+    
+    // Validate level
+    if (set.Level < 1 || set.Level > 100)
+    {
+        Console.WriteLine("Invalid level");
+        return false;
+    }
+    
+    // Validate EVs
+    int totalEVs = set.EVs.Sum();
+    if (totalEVs > 510)
+    {
+        Console.WriteLine($"Too many EVs: {totalEVs}/510");
+        return false;
+    }
+    
+    // Validate moves
+    int moveCount = set.Moves.Count(m => m != 0);
+    if (moveCount == 0)
+    {
+        Console.WriteLine("No moves specified");
+        return false;
+    }
+    
+    return true;
+}
+```
+
+## Showdown Format Specification
+
+The Showdown format follows this structure:
+
+```
+[Nickname] (Species)[-Form] [(Gender)] @ [Item]
+Ability: [Ability Name]
+Level: [Level]
+Shiny: Yes/No
+Gigantamax: Yes (Gen 8 only)
+Dynamax Level: [0-10] (Gen 8 only)
+Tera Type: [Type] (Gen 9 only)
+Happiness: [0-255]
+EVs: [HP] HP / [Atk] Atk / [Def] Def / [SpA] SpA / [SpD] SpD / [Spe] Spe
+IVs: [HP] HP / [Atk] Atk / [Def] Def / [SpA] SpA / [SpD] SpD / [Spe] Spe
+[Nature] Nature
+- [Move 1]
+- [Move 2]
+- [Move 3]
+- [Move 4]
+```
+
+All fields except species are optional.
+
+## See Also
+
+- [PKM Class](/api/pkm) - For working with Pokémon data
+- [SaveFile Class](/api/savefile) - For working with save files
+- [LegalityAnalysis Class](/api/legality-analysis) - For validating Pokémon legality

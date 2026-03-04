@@ -1,0 +1,504 @@
+---
+title: Game Versions
+description: Understanding the GameVersion enum and version handling in PKHeX.Core
+---
+
+## Overview
+
+The `GameVersion` enum is central to PKHeX's ability to handle Pokémon data across all generations. It represents both individual games and logical groupings used throughout the library.
+
+## GameVersion Enum
+
+### Individual Game IDs
+
+These values are stored in PKM data and identify specific games:
+
+```csharp
+// Generation 3
+GameVersion.S         // Sapphire = 1
+GameVersion.R         // Ruby = 2
+GameVersion.E         // Emerald = 3
+GameVersion.FR        // FireRed = 4
+GameVersion.LG        // LeafGreen = 5
+GameVersion.CXD       // Colosseum & XD = 15
+
+// Generation 4
+GameVersion.D         // Diamond = 10
+GameVersion.P         // Pearl = 11
+GameVersion.Pt        // Platinum = 12
+GameVersion.HG        // HeartGold = 7
+GameVersion.SS        // SoulSilver = 8
+
+// Generation 5
+GameVersion.B         // Black = 21
+GameVersion.W         // White = 20
+GameVersion.B2        // Black 2 = 23
+GameVersion.W2        // White 2 = 22
+
+// Generation 6
+GameVersion.X         // X = 24
+GameVersion.Y         // Y = 25
+GameVersion.AS        // Alpha Sapphire = 26
+GameVersion.OR        // Omega Ruby = 27
+
+// Generation 7
+GameVersion.SN        // Sun = 30
+GameVersion.MN        // Moon = 31
+GameVersion.US        // Ultra Sun = 32
+GameVersion.UM        // Ultra Moon = 33
+
+// Generation 8
+GameVersion.SW        // Sword = 44
+GameVersion.SH        // Shield = 45
+GameVersion.BD        // Brilliant Diamond = 48
+GameVersion.SP        // Shining Pearl = 49
+GameVersion.PLA       // Legends: Arceus = 47
+
+// Generation 9
+GameVersion.SL        // Scarlet = 50
+GameVersion.VL        // Violet = 51
+GameVersion.ZA        // Legends: Z-A = 52
+
+// Special
+GameVersion.GO        // Pokémon GO = 34
+```
+
+### Virtual Console Games
+
+```csharp
+// Generation 1 VC
+GameVersion.RD        // Red = 35
+GameVersion.GN        // Green/Blue = 36
+GameVersion.BU        // Blue (JP) = 37
+GameVersion.YW        // Yellow = 38
+
+// Generation 2 VC
+GameVersion.GD        // Gold = 39
+GameVersion.SI        // Silver = 40
+GameVersion.C         // Crystal = 41
+```
+
+### Game Groupings
+
+These are logical groupings not stored in data:
+
+```csharp
+// Generation groupings
+GameVersion.Gen1      // All Gen 1
+GameVersion.Gen2      // All Gen 2
+GameVersion.Gen3      // All Gen 3
+GameVersion.Gen4      // All Gen 4
+GameVersion.Gen5      // All Gen 5
+GameVersion.Gen6      // All Gen 6
+GameVersion.Gen7      // All Gen 7 (3DS)
+GameVersion.Gen7b     // All Gen 7 (Switch)
+GameVersion.Gen8      // All Gen 8
+GameVersion.Gen9      // All Gen 9
+
+// Version pairs
+GameVersion.RS        // Ruby & Sapphire
+GameVersion.RSE       // Ruby/Sapphire/Emerald
+GameVersion.FRLG      // FireRed & LeafGreen
+GameVersion.DP        // Diamond & Pearl
+GameVersion.DPPt      // Diamond/Pearl/Platinum
+GameVersion.HGSS      // HeartGold & SoulSilver
+GameVersion.BW        // Black & White
+GameVersion.B2W2      // Black 2 & White 2
+GameVersion.XY        // X & Y
+GameVersion.ORAS      // Omega Ruby & Alpha Sapphire
+GameVersion.SM        // Sun & Moon
+GameVersion.USUM      // Ultra Sun & Ultra Moon
+GameVersion.GG        // Let's Go Pikachu & Eevee
+GameVersion.SWSH      // Sword & Shield
+GameVersion.BDSP      // Brilliant Diamond & Shining Pearl
+GameVersion.SV        // Scarlet & Violet
+
+// Legacy groupings
+GameVersion.RB        // Red & Blue
+GameVersion.RBY       // Red/Blue/Yellow
+GameVersion.GS        // Gold & Silver
+GameVersion.GSC       // Gold/Silver/Crystal
+
+// Special indicators
+GameVersion.Any       // Any game
+GameVersion.Invalid   // Invalid/unknown
+```
+
+## Common Usage Patterns
+
+### Checking Game Version
+
+```csharp
+PKM pokemon = GetPokemon();
+GameVersion version = pokemon.Version;
+
+// Check specific game
+if (version == GameVersion.SW)
+{
+    Console.WriteLine("From Pokémon Sword");
+}
+
+// Check game pair
+if (version == GameVersion.SW || version == GameVersion.SH)
+{
+    Console.WriteLine("From Sword/Shield");
+}
+
+// Using PKM helper properties
+if (pokemon.SWSH)
+{
+    Console.WriteLine("From Sword/Shield");
+}
+
+if (pokemon.SV)
+{
+    Console.WriteLine("From Scarlet/Violet");
+}
+```
+
+### PKM Version Properties
+
+The PKM class provides convenient boolean properties:
+
+```csharp
+PKM pokemon = GetPokemon();
+
+// Individual games
+bool isEmerald = pokemon.E;
+bool isPlatinum = pokemon.Pt;
+bool isUltraSun = pokemon.USUM;
+
+// Game pairs
+bool isFRLG = pokemon.FRLG;      // FireRed or LeafGreen
+bool isHGSS = pokemon.HGSS;      // HeartGold or SoulSilver
+bool isBW = pokemon.BW;          // Black or White
+bool isB2W2 = pokemon.B2W2;      // Black 2 or White 2
+bool isXY = pokemon.XY;          // X or Y
+bool isAO = pokemon.AO;          // Alpha Sapphire or Omega Ruby
+bool isSM = pokemon.SM;          // Sun or Moon
+bool isUSUM = pokemon.USUM;      // Ultra Sun or Ultra Moon
+bool isLGPE = pokemon.LGPE;      // Let's Go Pikachu or Eevee
+bool isSWSH = pokemon.SWSH;      // Sword or Shield
+bool isBDSP = pokemon.BDSP;      // Brilliant Diamond or Shining Pearl
+bool isLA = pokemon.LA;          // Legends: Arceus
+bool isSV = pokemon.SV;          // Scarlet or Violet
+bool isZA = pokemon.ZA;          // Legends: Z-A
+
+// Special origins
+bool isGO = pokemon.GO;          // Pokémon GO
+bool isVC = pokemon.VC;          // Any Virtual Console
+bool isVC1 = pokemon.VC1;        // Gen 1 Virtual Console
+bool isVC2 = pokemon.VC2;        // Gen 2 Virtual Console
+bool isGG = pokemon.GG;          // Let's Go games
+
+// GO transfer locations
+bool isGOLGPE = pokemon.GO_LGPE; // GO -> Let's Go
+bool isGOHOME = pokemon.GO_HOME; // GO -> HOME
+```
+
+### Generation Detection
+
+```csharp
+PKM pokemon = GetPokemon();
+
+// Using PKM generation properties
+bool isGen1 = pokemon.Gen1;
+bool isGen2 = pokemon.Gen2;
+bool isGen3 = pokemon.Gen3;
+bool isGen4 = pokemon.Gen4;
+bool isGen5 = pokemon.Gen5;
+bool isGen6 = pokemon.Gen6;
+bool isGen7 = pokemon.Gen7;
+bool isGen8 = pokemon.Gen8;
+bool isGen9 = pokemon.Gen9;
+
+// Or get generation number
+byte generation = pokemon.Generation;
+
+switch (generation)
+{
+    case 1:
+        Console.WriteLine("Generation 1");
+        break;
+    case 2:
+        Console.WriteLine("Generation 2");
+        break;
+    // ...
+}
+```
+
+### Version Extensions
+
+PKHeX provides extension methods for GameVersion:
+
+```csharp
+using PKHeX.Core;
+
+GameVersion version = GameVersion.SW;
+
+// Check generation
+bool isGen8 = version.IsGen8();
+bool isGen9 = version.IsGen9();
+
+// Get generation number
+int gen = version.GetGeneration();
+
+// Check if version contains game
+bool hasSword = GameVersion.SWSH.Contains(GameVersion.SW);
+
+// Get max values for version
+ushort maxSpecies = version.GetMaxSpeciesID();
+ushort maxMove = version.GetMaxMoveID();
+int maxItem = version.GetMaxItemID();
+```
+
+## Version Compatibility
+
+### Transfer Compatibility
+
+```csharp
+public bool CanTransferTo(GameVersion from, GameVersion to)
+{
+    // Gen 3 -> Gen 4+
+    if (from.IsGen3() && to.GetGeneration() >= 4)
+        return true;
+        
+    // Gen 4 -> Gen 5+
+    if (from.IsGen4() && to.GetGeneration() >= 5)
+        return true;
+        
+    // Gen 5 -> Gen 6+
+    if (from.IsGen5() && to.GetGeneration() >= 6)
+        return true;
+        
+    // Gen 6 -> Gen 7+
+    if (from.IsGen6() && to.GetGeneration() >= 7)
+        return true;
+        
+    // Gen 7 -> Gen 8+
+    if (from.IsGen7() && to.GetGeneration() >= 8)
+        return true;
+        
+    // Gen 8 -> Gen 9
+    if (from.IsGen8() && to.IsGen9())
+        return true;
+        
+    return false;
+}
+```
+
+### Version-Specific Features
+
+```csharp
+public void CheckFeatureSupport(GameVersion version)
+{
+    // Abilities introduced in Gen 3
+    bool hasAbilities = version.GetGeneration() >= 3;
+    
+    // Physical/Special split in Gen 4
+    bool hasPhysicalSplit = version.GetGeneration() >= 4;
+    
+    // Mega Evolution in Gen 6+
+    bool hasMegas = version.GetGeneration() >= 6;
+    
+    // Z-Moves in Gen 7
+    bool hasZMoves = version.GetGeneration() == 7;
+    
+    // Dynamax in SWSH
+    bool hasDynamax = version == GameVersion.SW || 
+                      version == GameVersion.SH;
+    
+    // Tera Types in SV
+    bool hasTeraTypes = version == GameVersion.SL || 
+                        version == GameVersion.VL;
+}
+```
+
+## Practical Examples
+
+### Example 1: Version-Specific Validation
+
+```csharp
+public bool ValidateForVersion(PKM pokemon, GameVersion targetVersion)
+{
+    // Check species compatibility
+    ushort maxSpecies = targetVersion.GetMaxSpeciesID();
+    if (pokemon.Species > maxSpecies)
+    {
+        Console.WriteLine($"Species {pokemon.Species} not available in {targetVersion}");
+        return false;
+    }
+    
+    // Check move compatibility
+    ushort maxMove = targetVersion.GetMaxMoveID();
+    Span<ushort> moves = stackalloc ushort[4];
+    pokemon.GetMoves(moves);
+    
+    foreach (var move in moves)
+    {
+        if (move > maxMove)
+        {
+            Console.WriteLine($"Move {move} not available in {targetVersion}");
+            return false;
+        }
+    }
+    
+    return true;
+}
+```
+
+### Example 2: Version Group Detection
+
+```csharp
+public string GetVersionGroup(GameVersion version)
+{
+    return version switch
+    {
+        GameVersion.R or GameVersion.S => "Ruby/Sapphire",
+        GameVersion.E => "Emerald",
+        GameVersion.FR or GameVersion.LG => "FireRed/LeafGreen",
+        GameVersion.D or GameVersion.P => "Diamond/Pearl",
+        GameVersion.Pt => "Platinum",
+        GameVersion.HG or GameVersion.SS => "HeartGold/SoulSilver",
+        GameVersion.B or GameVersion.W => "Black/White",
+        GameVersion.B2 or GameVersion.W2 => "Black 2/White 2",
+        GameVersion.X or GameVersion.Y => "X/Y",
+        GameVersion.OR or GameVersion.AS => "Omega Ruby/Alpha Sapphire",
+        GameVersion.SN or GameVersion.MN => "Sun/Moon",
+        GameVersion.US or GameVersion.UM => "Ultra Sun/Ultra Moon",
+        GameVersion.GP or GameVersion.GE => "Let's Go Pikachu/Eevee",
+        GameVersion.SW or GameVersion.SH => "Sword/Shield",
+        GameVersion.BD or GameVersion.SP => "Brilliant Diamond/Shining Pearl",
+        GameVersion.PLA => "Legends: Arceus",
+        GameVersion.SL or GameVersion.VL => "Scarlet/Violet",
+        _ => "Unknown"
+    };
+}
+```
+
+### Example 3: Origin Game Display
+
+```csharp
+public void DisplayOriginInfo(PKM pokemon)
+{
+    GameVersion origin = pokemon.Version;
+    byte generation = pokemon.Generation;
+    
+    Console.WriteLine($"Origin Game: {origin}");
+    Console.WriteLine($"Generation: {generation}");
+    
+    if (pokemon.GO)
+    {
+        Console.WriteLine("Originally from Pokémon GO");
+        if (pokemon.GO_LGPE)
+            Console.WriteLine("Transferred via Let's Go");
+        else if (pokemon.GO_HOME)
+            Console.WriteLine("Transferred via HOME");
+    }
+    
+    if (pokemon.VC)
+    {
+        Console.WriteLine("From Virtual Console:");
+        if (pokemon.VC1)
+            Console.WriteLine("  - Generation 1 VC");
+        if (pokemon.VC2)
+            Console.WriteLine("  - Generation 2 VC");
+    }
+}
+```
+
+### Example 4: Version-Based Item Validation
+
+```csharp
+public bool IsItemLegalForVersion(int itemID, GameVersion version)
+{
+    int maxItem = version.GetMaxItemID();
+    if (itemID > maxItem)
+        return false;
+        
+    // Check generation-specific items
+    int gen = version.GetGeneration();
+    
+    // Mega Stones only in Gen 6-7
+    if (IsMegaStone(itemID) && gen is not (6 or 7))
+        return false;
+        
+    // Z-Crystals only in Gen 7
+    if (IsZCrystal(itemID) && gen != 7)
+        return false;
+        
+    // Dynamax items only in SWSH
+    if (IsDynamaxItem(itemID) && version is not (GameVersion.SW or GameVersion.SH))
+        return false;
+        
+    return true;
+}
+```
+
+## Save File Version
+
+```csharp
+SaveFile save = LoadSaveFile();
+
+GameVersion saveVersion = save.Version;
+byte generation = save.Generation;
+EntityContext context = save.Context;
+
+Console.WriteLine($"Save File: {saveVersion}");
+Console.WriteLine($"Generation: {generation}");
+Console.WriteLine($"Context: {context}");
+
+// Get compatible PKM type
+Type pkmType = save.PKMType;
+Console.WriteLine($"PKM Format: {pkmType.Name}");
+
+// Max values for this version
+ushort maxSpecies = save.MaxSpeciesID;
+ushort maxMove = save.MaxMoveID;
+int maxItem = save.MaxItemID;
+GameVersion maxGameID = save.MaxGameID;
+```
+
+## Best Practices
+
+<Warning>
+Don't assume version continuity:
+```csharp
+// Bad - assumes sequential enum values
+if (version >= GameVersion.SW && version <= GameVersion.VL)
+{
+    // May include non-Gen8/9 games!
+}
+
+// Good - use generation checks
+if (version.GetGeneration() >= 8)
+{
+    // Correctly checks Gen 8+
+}
+```
+</Warning>
+
+<Tip>
+Use PKM helper properties for readability:
+```csharp
+// Instead of:
+if (pokemon.Version == GameVersion.SW || pokemon.Version == GameVersion.SH)
+
+// Use:
+if (pokemon.SWSH)
+```
+</Tip>
+
+<Info>
+When checking version groups, use the grouping constants:
+```csharp
+// For encounter matching or data lookups
+GameVersion group = GameVersion.SWSH;  // Covers both SW and SH
+```
+</Info>
+
+## Related Resources
+
+- [Pokémon Entities](/concepts/pokemon-entities) - PKM version properties
+- [Save Files](/concepts/save-files) - Save file version handling
+- [Legality Analysis](/concepts/legality-analysis) - Version-based validation

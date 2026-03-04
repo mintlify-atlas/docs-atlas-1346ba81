@@ -1,0 +1,472 @@
+---
+title: Converting Between Generations
+description: Transfer Pokémon between different generation formats in PKHeX.Core
+---
+
+## Overview
+
+PKHeX.Core provides the `EntityConverter` class to convert Pokémon between different generation formats. This allows you to transfer Pokémon from older games to newer ones (and vice versa in some cases).
+
+## Understanding Format Types
+
+Each generation has specific format classes:
+
+| Generation | Format Class | Games |
+|------------|--------------|-------|
+| Gen 1 | `PK1` | Red, Blue, Yellow |
+| Gen 2 | `PK2` | Gold, Silver, Crystal |
+| Gen 3 | `PK3` | Ruby, Sapphire, Emerald, FireRed, LeafGreen |
+| Gen 4 | `PK4` | Diamond, Pearl, Platinum, HeartGold, SoulSilver |
+| Gen 5 | `PK5` | Black, White, Black 2, White 2 |
+| Gen 6 | `PK6` | X, Y, Omega Ruby, Alpha Sapphire |
+| Gen 7 | `PK7` | Sun, Moon, Ultra Sun, Ultra Moon |
+| Gen 8 | `PK8` | Sword, Shield |
+| Gen 8b | `PB8` | Brilliant Diamond, Shining Pearl |
+| Gen 8a | `PA8` | Legends: Arceus |
+| Gen 9 | `PK9` | Scarlet, Violet |
+
+## Basic Conversion
+
+### Converting to a Specific Type
+
+```csharp
+using PKHeX.Core;
+
+// Create a Gen 8 Pokémon
+var pk8 = new PK8
+{
+    Species = (ushort)Species.Pikachu,
+    CurrentLevel = 50,
+    Ability = (int)Ability.Static
+};
+pk8.RefreshChecksum();
+
+// Convert to Gen 9
+var pk9 = EntityConverter.ConvertToType(pk8, typeof(PK9), out var result);
+
+if (pk9 != null)
+{
+    Console.WriteLine($"Conversion successful! Result: {result}");
+}
+else
+{
+    Console.WriteLine($"Conversion failed: {result}");
+}
+```
+
+### Generic Conversion
+
+Use generic methods for type-safe conversions:
+
+```csharp
+public T ConvertPokemon<T>(PKM pk) where T : PKM
+{
+    var converted = EntityConverter.ConvertToType(pk, typeof(T), out var result);
+    
+    if (converted == null)
+    {
+        throw new InvalidOperationException($"Conversion failed: {result}");
+    }
+    
+    return (T)converted;
+}
+
+// Usage
+var pk8 = new PK8 { Species = 25 };
+var pk9 = ConvertPokemon<PK9>(pk8);
+```
+
+## Understanding Conversion Results
+
+The `EntityConverterResult` enum indicates conversion status:
+
+```csharp
+var result = EntityConverter.ConvertToType(pk, typeof(PK9), out var conversionResult);
+
+switch (conversionResult)
+{
+    case EntityConverterResult.Success:
+        Console.WriteLine("Conversion successful!");
+        break;
+    case EntityConverterResult.NoTransferRoute:
+        Console.WriteLine("Cannot convert between these formats");
+        break;
+    case EntityConverterResult.IncompatibleForm:
+        Console.WriteLine("Form not available in target generation");
+        break;
+    case EntityConverterResult.IncompatibleAbility:
+        Console.WriteLine("Ability not available in target generation");
+        break;
+    case EntityConverterResult.IncompatibleMove:
+        Console.WriteLine("Move not available in target generation");
+        break;
+    default:
+        Console.WriteLine($"Unknown result: {conversionResult}");
+        break;
+}
+```
+
+## Forward Conversion (Old to New)
+
+### Gen 3 → Gen 4 → Gen 5 → Gen 6 → Gen 7 → Gen 8 → Gen 9
+
+Forward conversions generally preserve all data:
+
+```csharp
+// Create a Gen 3 Pokémon
+var pk3 = new PK3
+{
+    Species = (ushort)Species.Blaziken,
+    CurrentLevel = 50
+};
+pk3.RefreshChecksum();
+
+// Convert through generations
+var pk4 = (PK4)EntityConverter.ConvertToType(pk3, typeof(PK4), out _);
+var pk5 = (PK5)EntityConverter.ConvertToType(pk4, typeof(PK5), out _);
+var pk6 = (PK6)EntityConverter.ConvertToType(pk5, typeof(PK6), out _);
+var pk7 = (PK7)EntityConverter.ConvertToType(pk6, typeof(PK7), out _);
+var pk8 = (PK8)EntityConverter.ConvertToType(pk7, typeof(PK8), out _);
+var pk9 = (PK9)EntityConverter.ConvertToType(pk8, typeof(PK9), out _);
+
+Console.WriteLine($"Successfully converted Gen 3 to Gen 9!");
+```
+
+<Note>
+Each forward conversion adds new generation-specific data (abilities, forms, etc.) where applicable.
+</Note>
+
+## Backward Conversion (New to Old)
+
+### Through Pokémon HOME
+
+Gen 8+ supports backward conversion through HOME:
+
+```csharp
+// Gen 9 → Gen 8 (via HOME)
+var pk9 = new PK9
+{
+    Species = (ushort)Species.Charizard,
+    CurrentLevel = 100
+};
+pk9.RefreshChecksum();
+
+// Convert to Gen 8
+var pk8 = EntityConverter.ConvertToType(pk9, typeof(PK8), out var result);
+
+if (pk8 != null && result == EntityConverterResult.Success)
+{
+    Console.WriteLine("Backward conversion successful!");
+}
+```
+
+<Warning>
+Backward conversions may lose generation-specific data (Tera Types, new moves, etc.).
+</Warning>
+
+### Conversion Restrictions
+
+```csharp
+// Check if conversion is possible
+public bool CanConvert(PKM pk, byte targetFormat)
+{
+    return EntityConverter.IsConvertibleToFormat(pk, targetFormat);
+}
+
+// Example
+var pk9 = new PK9();
+if (CanConvert(pk9, 8)) // Can convert to Gen 8?
+{
+    var pk8 = EntityConverter.ConvertToType(pk9, typeof(PK8), out _);
+}
+```
+
+## Virtual Console Transfers (Gen 1/2 → Gen 7)
+
+Gen 1 and 2 can transfer to Gen 7 via Virtual Console:
+
+```csharp
+// Create a Gen 1 Pokémon
+var pk1 = PokeList1.GetPKMFromBytes(data);
+
+// Set Virtual Console source
+EntityConverter.VirtualConsoleSourceGen1 = GameVersion.RD; // Red version
+
+// Convert to Gen 7
+var pk7 = EntityConverter.ConvertToType(pk1, typeof(PK7), out var result);
+
+if (pk7 != null)
+{
+    Console.WriteLine($"Gen 1 → Gen 7 transfer complete!");
+    // Virtual Console transfers get special markings
+    if (pk7 is PK7 p7)
+    {
+        Console.WriteLine($"VC Transfer: {p7.VirtualConsole}");
+    }
+}
+```
+
+## Side Format Conversions
+
+Some games have special formats:
+
+### Colosseum/XD (Gen 3)
+
+```csharp
+// PK3 ↔ CK3 (Colosseum)
+var pk3 = new PK3 { Species = 25 };
+var ck3 = pk3.ConvertToCK3();
+var backToPk3 = ck3.ConvertToPK3();
+
+// PK3 ↔ XK3 (XD: Gale of Darkness)
+var xk3 = pk3.ConvertToXK3();
+var alsoPk3 = xk3.ConvertToPK3();
+```
+
+### Battle Revolution (Gen 4)
+
+```csharp
+// PK4 ↔ BK4 (Battle Revolution)
+var pk4 = new PK4 { Species = 25 };
+var bk4 = pk4.ConvertToBK4();
+var backToPk4 = bk4.ConvertToPK4();
+```
+
+### Let's Go (Gen 7b)
+
+```csharp
+// Gen 7 ↔ Let's Go
+var pk7 = new PK7 { Species = (ushort)Species.Pikachu };
+var pb7 = EntityConverter.ConvertToType(pk7, typeof(PB7), out var result);
+```
+
+## Conversion Settings
+
+### Compatibility Settings
+
+```csharp
+// Allow incompatible conversions (use with caution)
+EntityConverter.AllowIncompatibleConversion = EntityCompatibilitySetting.AllowIncompatibleAll;
+
+// This allows conversions that wouldn't normally work
+var pk1 = new PK1 { Species = 25 };
+var pk3 = EntityConverter.ConvertToType(pk1, typeof(PK3), out var result);
+// Normally PK1 → PK3 requires going through PK7 first
+```
+
+### Rejuvenation Settings
+
+Restore lost data after HOME transfers:
+
+```csharp
+// Enable data rejuvenation
+EntityConverter.RejuvenateHOME = EntityRejuvenationSetting.MissingDataHOME;
+
+// Convert with rejuvenation
+var pk9 = new PK9 { Species = 25 };
+var pk8 = EntityConverter.ConvertToType(pk9, typeof(PK8), out _);
+// Lost data (like met location) may be restored
+```
+
+## Detecting Format from Data
+
+Automatically detect Pokémon format:
+
+```csharp
+using PKHeX.Core;
+
+public PKM LoadPokemon(byte[] data)
+{
+    // Detect format
+    var format = EntityFormat.GetFormat(data);
+    
+    // Create appropriate PKM object
+    var pk = EntityFormat.GetFromBytes(data);
+    
+    if (pk == null)
+    {
+        throw new Exception($"Unknown format: {format}");
+    }
+    
+    Console.WriteLine($"Detected format: {pk.GetType().Name}");
+    return pk;
+}
+```
+
+## Handling Conversion Failures
+
+### Check Convertibility First
+
+```csharp
+public PKM? SafeConvert(PKM pk, Type targetType)
+{
+    // Check if conversion is possible
+    byte targetGen = (byte)(targetType.Name[^1] - '0');
+    
+    if (!EntityConverter.IsConvertibleToFormat(pk, targetGen))
+    {
+        Console.WriteLine($"Cannot convert {pk.Format} to Gen {targetGen}");
+        return null;
+    }
+    
+    // Attempt conversion
+    var converted = EntityConverter.ConvertToType(pk, targetType, out var result);
+    
+    if (converted == null)
+    {
+        Console.WriteLine($"Conversion failed: {result}");
+        return null;
+    }
+    
+    return converted;
+}
+```
+
+### Handle Incompatible Moves
+
+```csharp
+public void FixMovesAfterConversion(PKM pk)
+{
+    // Remove moves not available in this generation
+    var legal = new LegalMoveSource(pk);
+    
+    if (pk.Move1 > pk.MaxMoveID) pk.Move1 = 0;
+    if (pk.Move2 > pk.MaxMoveID) pk.Move2 = 0;
+    if (pk.Move3 > pk.MaxMoveID) pk.Move3 = 0;
+    if (pk.Move4 > pk.MaxMoveID) pk.Move4 = 0;
+    
+    pk.RefreshChecksum();
+}
+```
+
+## Complete Conversion Pipeline
+
+```csharp
+using PKHeX.Core;
+
+public class PokemonConverter
+{
+    public static PKM ConvertToGeneration(PKM source, int targetGen)
+    {
+        // Map generation to type
+        var targetType = targetGen switch
+        {
+            1 => typeof(PK1),
+            2 => typeof(PK2),
+            3 => typeof(PK3),
+            4 => typeof(PK4),
+            5 => typeof(PK5),
+            6 => typeof(PK6),
+            7 => typeof(PK7),
+            8 => typeof(PK8),
+            9 => typeof(PK9),
+            _ => throw new ArgumentException($"Invalid generation: {targetGen}")
+        };
+        
+        // Check compatibility
+        if (!EntityConverter.IsConvertibleToFormat(source, (byte)targetGen))
+        {
+            throw new InvalidOperationException(
+                $"Cannot convert Gen {source.Format} to Gen {targetGen}"
+            );
+        }
+        
+        // Perform conversion
+        var converted = EntityConverter.ConvertToType(
+            source, 
+            targetType, 
+            out var result
+        );
+        
+        if (converted == null)
+        {
+            throw new InvalidOperationException(
+                $"Conversion failed: {result}"
+            );
+        }
+        
+        // Validate and finalize
+        converted.RefreshChecksum();
+        
+        if (!converted.Valid)
+        {
+            Console.WriteLine("Warning: Converted Pokémon may be invalid");
+        }
+        
+        return converted;
+    }
+    
+    // Convert with automatic intermediate steps
+    public static PKM ConvertWithSteps(PKM source, int targetGen)
+    {
+        int currentGen = source.Format;
+        PKM current = source;
+        
+        Console.WriteLine($"Converting from Gen {currentGen} to Gen {targetGen}");
+        
+        while (currentGen != targetGen)
+        {
+            int nextGen = currentGen < targetGen ? currentGen + 1 : currentGen - 1;
+            current = ConvertToGeneration(current, nextGen);
+            currentGen = nextGen;
+            Console.WriteLine($"  → Gen {currentGen}");
+        }
+        
+        return current;
+    }
+}
+
+// Usage
+var pk3 = new PK3 { Species = (ushort)Species.Rayquaza };
+pk3.RefreshChecksum();
+
+var pk9 = PokemonConverter.ConvertWithSteps(pk3, 9);
+Console.WriteLine($"Converted {pk3.GetType().Name} to {pk9.GetType().Name}");
+```
+
+## Best Practices
+
+<Tip>
+- Always check `IsConvertibleToFormat()` before attempting conversion
+- Call `RefreshChecksum()` after conversion
+- Handle conversion results explicitly
+- Be aware of data loss when converting backward
+- Test conversions thoroughly for your use case
+</Tip>
+
+<Warning>
+Conversion between distant generations (e.g., Gen 1 → Gen 9) requires multiple intermediate steps and may take longer.
+</Warning>
+
+## Common Conversion Scenarios
+
+### Modern to Modern (Gen 8 ↔ Gen 9)
+
+```csharp
+// Most reliable, minimal data loss
+var pk8 = new PK8 { Species = 25 };
+var pk9 = (PK9)EntityConverter.ConvertToType(pk8, typeof(PK9), out _);
+```
+
+### Classic to Modern (Gen 3 → Gen 9)
+
+```csharp
+// Requires multiple steps internally
+var pk3 = new PK3 { Species = 25 };
+var pk9 = PokemonConverter.ConvertWithSteps(pk3, 9);
+```
+
+### Virtual Console (Gen 1/2 → Gen 7)
+
+```csharp
+// Special handling for VC transfers
+EntityConverter.VirtualConsoleSourceGen1 = GameVersion.RD;
+var pk1 = new PK1 { Species = 25 };
+var pk7 = (PK7)EntityConverter.ConvertToType(pk1, typeof(PK7), out _);
+```
+
+## Next Steps
+
+- Learn about [Creating Pokémon](/guides/pokemon/creating-pokemon) for new entities
+- See [Editing Properties](/guides/pokemon/editing-properties) for modifications
+- Check [Showdown Format](/guides/pokemon/showdown-format) for team import/export

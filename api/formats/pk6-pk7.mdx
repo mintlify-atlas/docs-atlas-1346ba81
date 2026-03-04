@@ -1,0 +1,363 @@
+---
+title: PK6 and PK7 Classes
+description: Generation 6 and 7 PKM format documentation
+---
+
+# PK6 and PK7 Classes
+
+PK6 and PK7 represent the Nintendo 3DS era formats, introducing memories, affection, and significantly expanded data structures.
+
+## PK6 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK6.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 232 bytes (0xE8) |
+| SIZE_PARTY | 260 bytes (0x104) |
+| Generation | 6 |
+| Context | EntityContext.Gen6 |
+| Games | X, Y, Omega Ruby, Alpha Sapphire |
+
+### Key Features
+
+#### Encryption Constant
+
+Replaces the PID for encryption purposes:
+
+```csharp
+public override uint EncryptionConstant { get; set; }
+```
+
+- Used for block shuffling
+- Independent from PID
+- 32-bit random value
+
+#### Trainer Memories
+
+PK6 introduced the memory system:
+
+```csharp
+// Original Trainer Memories
+public byte OriginalTrainerMemoryIntensity { get; set; }
+public byte OriginalTrainerMemory { get; set; }
+public ushort OriginalTrainerMemoryVariable { get; set; }
+public byte OriginalTrainerMemoryFeeling { get; set; }
+
+// Handler Memories  
+public byte HandlingTrainerMemoryIntensity { get; set; }
+public byte HandlingTrainerMemory { get; set; }
+public ushort HandlingTrainerMemoryVariable { get; set; }
+public byte HandlingTrainerMemoryFeeling { get; set; }
+```
+
+#### Affection System
+
+```csharp
+public byte OriginalTrainerAffection { get; set; }
+public byte HandlingTrainerAffection { get; set; }
+```
+
+Pokémon-Amie introduced affection separate from friendship.
+
+#### Geo Location Tracking
+
+```csharp
+public byte Geo1_Region { get; set; }
+public byte Geo1_Country { get; set; }
+public byte Geo2_Region { get; set; }
+public byte Geo2_Country { get; set; }
+public byte Geo3_Region { get; set; }
+public byte Geo3_Country { get; set; }
+public byte Geo4_Region { get; set; }
+public byte Geo4_Country { get; set; }
+public byte Geo5_Region { get; set; }
+public byte Geo5_Country { get; set; }
+```
+
+Tracks up to 5 regions where Pokémon was traded.
+
+#### Super Training
+
+```csharp
+public uint SuperTrainBitFlags { get; set; }
+public bool SuperTrain1_HP { get; set; }
+public bool SuperTrain1_ATK { get; set; }
+// ... and many more
+
+public ushort DistTrainBitFlags { get; set; }
+public byte TrainingBagHits { get; set; }
+public byte TrainingBag { get; set; }
+```
+
+Super Training regimen completion flags.
+
+### Data Structure
+
+#### Block A (0x08-0x3F)
+
+- Encryption Constant
+- Sanity, Checksum
+- Species, Held Item, ID32, EXP
+- Ability, Ability Number
+- Training Bag data
+- PID, Nature
+- Fateful, Gender, Form
+- EVs (6 bytes)
+- Contest stats (6 bytes)
+- Markings, Pokérus
+- Super Training flags (4 bytes)
+- Ribbons (6 bytes)
+- Ribbon counts
+- Distribution flags
+- Form Argument
+
+#### Block B (0x40-0x77)
+
+- Nickname (26 bytes, UTF-16)
+- Moves 1-4 (2 bytes each)
+- PP (4 bytes)
+- PP Ups (4 bytes)
+- Relearn Moves 1-4 (2 bytes each)
+- Secret Super Training flags
+- IVs (30 bits) + IsEgg + IsNicknamed
+
+#### Block C (0x78-0xAF)
+
+- Handler Name (26 bytes, UTF-16)
+- Handler Gender, Current Handler
+- Geo location data (5 locations)
+- Handler Friendship, Affection
+- Handler Memory data
+- Fullness, Enjoyment
+
+#### Block D (0xB0-0xE7)
+
+- OT Name (26 bytes, UTF-16)
+- OT Friendship, Affection
+- OT Memory data
+- Egg and Met dates
+- Egg and Met locations
+- Ball, Met Level, OT Gender
+- Ground Tile, Version
+- Country, Region, Console Region
+- Language
+
+### Form Arguments
+
+```csharp
+public uint FormArgument { get; set; }
+public byte FormArgumentMaximum { get; set; }
+public byte FormArgumentRemain { get; set; }
+public byte FormArgumentElapsed { get; set; }
+```
+
+Used for time-based forms (Furfrou, Hoopa).
+
+### Region System
+
+```csharp
+public byte Country { get; set; }
+public byte Region { get; set; }
+public byte ConsoleRegion { get; set; }
+```
+
+Tracks 3DS console region and sub-region.
+
+---
+
+## PK7 Class
+
+**Namespace**: `PKHeX.Core`
+
+**File**: `PKHeX.Core/PKM/PK7.cs`
+
+### Format Specifications
+
+| Property | Value |
+|----------|-------|
+| SIZE_STORED | 232 bytes (0xE8) |
+| SIZE_PARTY | 260 bytes (0x104) |
+| Generation | 7 |
+| Context | EntityContext.Gen7 |
+| Games | Sun, Moon, Ultra Sun, Ultra Moon |
+
+### Key Features
+
+#### Hyper Training
+
+Gen 7 introduced Hyper Training:
+
+```csharp
+public byte HyperTrainFlags { get; set; }
+public bool HyperTrainedHP { get; set; }
+public bool HyperTrainedATK { get; set; }
+public bool HyperTrainedDEF { get; set; }
+public bool HyperTrainedSPA { get; set; }
+public bool HyperTrainedSPD { get; set; }
+public bool HyperTrainedSPE { get; set; }
+```
+
+Allows level 100 Pokémon to maximize IVs.
+
+#### Enhanced Markings
+
+Expanded from 6 to 6 with colors:
+
+```csharp
+public ushort MarkingValue { get; set; }
+public MarkingColor GetMarking(int index) { get; set; }
+```
+
+Each marking can be:
+- None (0)
+- Blue (1)
+- Pink (2)
+
+#### Resort Event Status
+
+```csharp
+public byte ResortEventStatus { get; set; }
+```
+
+Tracks Poké Pelago activities.
+
+### Differences from PK6
+
+#### Removed Features
+
+- Super Training (replaced by Hyper Training)
+- Training Bags
+- Distribution Super Training
+
+#### Added Features
+
+- Hyper Training flags
+- Colored markings (2 bits per marking)
+- Resort event status
+- Additional ribbons for Gen 7
+
+#### Modified Storage
+
+```csharp
+// Offset 0x15: Ability Number stored differently
+public override int AbilityNumber 
+{ 
+    get => Data[0x15] & 7;  // Lowest 3 bits
+    set => Data[0x15] = (byte)((Data[0x15] & ~7) | (value & 7)); 
+}
+```
+
+### Notable Properties
+
+#### Pokérus Status
+
+```csharp
+public byte PokerusState { get; set; }
+public int PokerusDays { get; set; }    // 0-15
+public int PokerusStrain { get; set; }  // 0-15
+```
+
+#### Version-Specific Forms
+
+PK7 handles many form changes:
+- Alolan forms
+- Totem Pokémon
+- Partner Cap Pikachu forms
+- Rockruff Own Tempo evolution
+
+### Z-Crystal Handling
+
+```csharp
+public bool IsHoldingZCrystal()
+{
+    var item = HeldItem;
+    return item >= 807 && item <= 920; // Z-Crystal range
+}
+```
+
+## Comparison Table
+
+| Feature | PK6 | PK7 |
+|---------|-----|-----|
+| Encryption | Block shuffle | Block shuffle |
+| Encryption Constant | Yes | Yes |
+| Super Training | Yes | No |
+| Hyper Training | No | Yes |
+| Markings | 6 (binary) | 6 (4 colors) |
+| Memories | Yes | Yes |
+| Affection | Yes | Yes |
+| Form Arguments | Basic | Enhanced |
+| Geo Locations | Yes | Yes |
+| Resort Events | No | Yes |
+
+## Code Examples
+
+### Creating a PK6 Pokémon
+
+```csharp
+var pk6 = new PK6
+{
+    Species = 658, // Greninja
+    Form = 0,
+    CurrentLevel = 50,
+    Ability = 204, // Protean
+    AbilityNumber = 4, // Hidden
+    Nature = Nature.Timid,
+    Ball = 5, // Safari Ball
+    Language = 2, // English
+    OriginalTrainerName = "Trainer",
+    Nickname = "Greninja"
+};
+pk6.SetRandomIVs(6); // 6 perfect IVs
+pk6.RefreshChecksum();
+```
+
+### Converting PK6 to PK7
+
+```csharp
+var pk6 = new PK6(data);
+var pk7 = pk6.ConvertToPK7();
+// PK7 now has:
+// - Colored markings (converted from binary)
+// - Hyper Training flags (cleared)
+// - Updated Handler memory
+```
+
+### Hyper Training a Pokémon
+
+```csharp
+var pk7 = new PK7(data);
+if (pk7.CurrentLevel == 100)
+{
+    pk7.HyperTrainedHP = true;
+    pk7.HyperTrainedATK = true;
+    pk7.HyperTrainedDEF = true;
+    pk7.HyperTrainedSPA = true;
+    pk7.HyperTrainedSPD = true;
+    pk7.HyperTrainedSPE = true;
+    pk7.RefreshChecksum();
+}
+```
+
+### Setting Memories
+
+```csharp
+var pk6 = new PK6
+{
+    OriginalTrainerMemory = 4, // "became friends"
+    OriginalTrainerMemoryIntensity = 5,
+    OriginalTrainerMemoryFeeling = 10, // "happy"
+    OriginalTrainerMemoryVariable = 0,
+};
+```
+
+## See Also
+
+- [Format Overview](/api/formats/overview)
+- [PK3, PK4, PK5 Classes](/api/formats/pk3-pk4-pk5)
+- [PK8, PA8, PB8 Classes](/api/formats/pk8-pa8-pb8)

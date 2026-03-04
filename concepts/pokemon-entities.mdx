@@ -1,0 +1,535 @@
+---
+title: Pokémon Entities
+description: Understanding the PKM base class and Pokémon entity formats in PKHeX.Core
+---
+
+## Overview
+
+The `PKM` class is the abstract base class representing individual Pokémon data structures. Each generation has specific implementations (PK1, PK2, PK3, etc.) that inherit from PKM and implement generation-specific features.
+
+## Core Architecture
+
+### Memory-Based Design
+
+PKM uses a memory buffer to store raw Pokémon data:
+
+```csharp
+protected readonly Memory<byte> Raw;
+public Span<byte> Data => Raw.Span;
+```
+
+This allows direct manipulation of the underlying byte structure while maintaining type safety.
+
+### Entity Context
+
+Every PKM has a context that determines its format and rules:
+
+```csharp
+public abstract EntityContext Context { get; }
+public byte Format => Context.Generation;
+```
+
+## Basic Properties
+
+### Species and Forms
+
+```csharp
+PKM pokemon = GetPokemon();
+
+// Species information
+ushort species = pokemon.Species;        // National Dex number
+byte form = pokemon.Form;                // Alternate form index
+PersonalInfo info = pokemon.PersonalInfo; // Base stats and info
+
+// Nickname
+string nickname = pokemon.Nickname;
+bool isNicknamed = pokemon.IsNicknamed;
+```
+
+### Trainer Information
+
+```csharp
+// Original Trainer
+string ot = pokemon.OriginalTrainerName;
+byte otGender = pokemon.OriginalTrainerGender;
+
+// Trainer IDs
+uint tid = pokemon.DisplayTID;    // Visible TID
+uint sid = pokemon.DisplaySID;    // Visible SID  
+uint id32 = pokemon.ID32;         // Combined 32-bit ID
+
+// Handler information (Gen 6+)
+string htName = pokemon.HandlingTrainerName;
+byte htGender = pokemon.HandlingTrainerGender;
+```
+
+### Battle Stats
+
+```csharp
+// Level and experience
+byte level = pokemon.CurrentLevel;
+uint exp = pokemon.EXP;
+
+// Nature
+Nature nature = pokemon.Nature;        // Affects stat growth
+Nature statNature = pokemon.StatNature; // Gen 8+ mints
+
+// Ability
+int ability = pokemon.Ability;
+int abilityNumber = pokemon.AbilityNumber;  // Which ability slot (0/1/2)
+
+// Gender
+byte gender = pokemon.Gender;  // 0=Male, 1=Female, 2=Genderless
+```
+
+## Stats and Training
+
+### Individual Values (IVs)
+
+```csharp
+// Access individual IVs
+int hpIV = pokemon.IV_HP;
+int atkIV = pokemon.IV_ATK;
+int defIV = pokemon.IV_DEF;
+int speIV = pokemon.IV_SPE;
+int spaIV = pokemon.IV_SPA;
+int spdIV = pokemon.IV_SPD;
+
+// Get all IVs at once
+Span<int> ivs = stackalloc int[6];
+pokemon.GetIVs(ivs);
+
+// Set all IVs
+ReadOnlySpan<int> newIVs = stackalloc int[] { 31, 31, 31, 31, 31, 31 };
+pokemon.SetIVs(newIVs);
+
+// IV statistics
+int totalIVs = pokemon.IVTotal;
+int maxIV = pokemon.MaximumIV;
+int flawlessCount = pokemon.FlawlessIVCount;
+
+// Set random IVs with guaranteed perfect stats
+pokemon.SetRandomIVs(minFlawless: 3);  // 3 guaranteed 31 IVs
+```
+
+### Effort Values (EVs)
+
+```csharp
+// Access individual EVs
+int hpEV = pokemon.EV_HP;
+int atkEV = pokemon.EV_ATK;
+int defEV = pokemon.EV_DEF;
+int speEV = pokemon.EV_SPE;
+int spaEV = pokemon.EV_SPA;
+int spdEV = pokemon.EV_SPD;
+
+// Get/Set all EVs
+Span<int> evs = stackalloc int[6];
+pokemon.GetEVs(evs);
+
+ReadOnlySpan<int> newEVs = stackalloc int[] { 252, 252, 0, 4, 0, 0 };
+pokemon.SetEVs(newEVs);
+
+// EV total
+int totalEVs = pokemon.EVTotal;  // Max 510
+```
+
+### Calculated Stats
+
+```csharp
+// Battle stats (calculated from IVs, EVs, nature)
+int currentHP = pokemon.Stat_HPCurrent;
+int maxHP = pokemon.Stat_HPMax;
+int atk = pokemon.Stat_ATK;
+int def = pokemon.Stat_DEF;
+int spa = pokemon.Stat_SPA;
+int spd = pokemon.Stat_SPD;
+int spe = pokemon.Stat_SPE;
+
+// Get all stats at once
+int[] stats = pokemon.Stats;
+
+// Recalculate stats
+pokemon.ResetPartyStats();
+
+// Heal to full HP and fix status
+pokemon.Heal();
+```
+
+## Moves and Attacks
+
+### Current Moves
+
+```csharp
+// Individual move access
+ushort move1 = pokemon.Move1;
+ushort move2 = pokemon.Move2;
+ushort move3 = pokemon.Move3;
+ushort move4 = pokemon.Move4;
+
+// PP (Power Points)
+int move1PP = pokemon.Move1_PP;
+int move1PPUps = pokemon.Move1_PPUps;
+
+// Get all moves
+ushort[] moves = pokemon.Moves;
+
+// Set moves
+ReadOnlySpan<ushort> newMoves = stackalloc ushort[] { 1, 2, 3, 4 };
+pokemon.SetMoves(newMoves);
+
+// Move utilities
+bool hasMove = pokemon.HasMove(25);  // Has Thunder Shock?
+int moveIndex = pokemon.GetMoveIndex(25);
+int moveCount = pokemon.MoveCount;
+
+// Add a move
+bool added = pokemon.AddMove(25, pushOut: true);
+
+// Fix move ordering and PP
+pokemon.FixMoves();
+
+// Heal PP to maximum
+pokemon.HealPP();
+```
+
+### Relearn Moves (Gen 6+)
+
+```csharp
+// Individual relearn moves
+ushort relearn1 = pokemon.RelearnMove1;
+ushort relearn2 = pokemon.RelearnMove2;
+ushort relearn3 = pokemon.RelearnMove3;
+ushort relearn4 = pokemon.RelearnMove4;
+
+// Get all relearn moves
+ushort[] relearnMoves = pokemon.RelearnMoves;
+
+// Set relearn moves
+ReadOnlySpan<ushort> newRelearnMoves = stackalloc ushort[] { 1, 2, 0, 0 };
+pokemon.SetRelearnMoves(newRelearnMoves);
+
+// Check if has relearn move
+bool hasRelearn = pokemon.HasRelearnMove(1);
+```
+
+## Identification
+
+### Unique Identifiers
+
+```csharp
+// PID (Personality Value)
+uint pid = pokemon.PID;
+
+// Encryption Constant (Gen 6+)
+uint ec = pokemon.EncryptionConstant;
+
+// Shiny calculation
+uint tsv = pokemon.TSV;  // Trainer Shiny Value
+uint psv = pokemon.PSV;  // Pokémon Shiny Value
+bool isShiny = pokemon.IsShiny;
+ushort shinyXor = pokemon.ShinyXor;
+
+// Make shiny
+pokemon.SetShiny();
+
+// Set specific shiny type
+pokemon.SetShinySID(Shiny.AlwaysSquare);
+```
+
+### Characteristic
+
+```csharp
+// IV Judge characteristic
+int characteristic = pokemon.Characteristic;
+int potentialRating = pokemon.PotentialRating;  // 0-3 (worst to best)
+```
+
+## Origin Information
+
+### Game Version
+
+```csharp
+// Origin game
+GameVersion version = pokemon.Version;
+
+// Generation shortcuts
+byte generation = pokemon.Generation;
+bool isGen8 = pokemon.Gen8;
+bool isSwSh = pokemon.SWSH;
+bool isBDSP = pokemon.BDSP;
+bool isSV = pokemon.SV;
+
+// Virtual Console
+bool isVC = pokemon.VC;
+bool isVC1 = pokemon.VC1;  // Gen 1 VC
+bool isVC2 = pokemon.VC2;  // Gen 2 VC
+```
+
+### Met Information
+
+```csharp
+// Met location
+ushort metLocation = pokemon.MetLocation;
+byte metLevel = pokemon.MetLevel;
+
+// Met date (Gen 4+)
+DateOnly? metDate = pokemon.MetDate;
+if (metDate.HasValue)
+{
+    Console.WriteLine($"Met on {metDate.Value}");
+}
+
+// Set met date
+pokemon.MetDate = new DateOnly(2024, 1, 15);
+
+// Individual date components
+byte metYear = pokemon.MetYear;    // Years since 2000
+byte metMonth = pokemon.MetMonth;
+byte metDay = pokemon.MetDay;
+```
+
+### Egg Information
+
+```csharp
+// Egg status
+bool isEgg = pokemon.IsEgg;
+bool wasEgg = pokemon.WasEgg;
+
+// Egg location
+ushort eggLocation = pokemon.EggLocation;
+bool wasTradedEgg = pokemon.WasTradedEgg;
+bool isTradedEgg = pokemon.IsTradedEgg;
+
+// Egg met date
+DateOnly? eggMetDate = pokemon.EggMetDate;
+pokemon.EggMetDate = new DateOnly(2024, 1, 1);
+```
+
+## Special Attributes
+
+### Ball and Item
+
+```csharp
+// Poké Ball
+byte ball = pokemon.Ball;
+
+// Held item
+int heldItem = pokemon.HeldItem;
+bool canHold = pokemon.CanHoldItem(legalItems);
+```
+
+### Friendship and Affection
+
+```csharp
+// Current friendship
+byte friendship = pokemon.CurrentFriendship;
+
+// Original friendship
+byte otFriendship = pokemon.OriginalTrainerFriendship;
+
+// Handler friendship (Gen 6+)
+byte htFriendship = pokemon.HandlingTrainerFriendship;
+```
+
+### Language
+
+```csharp
+int language = pokemon.Language;
+bool isJapanese = pokemon.Japanese;
+bool isKorean = pokemon.Korean;
+```
+
+### Fateful Encounter
+
+```csharp
+bool isFateful = pokemon.FatefulEncounter;
+```
+
+### Pokérus
+
+```csharp
+// Pokérus status
+int strain = pokemon.PokerusStrain;
+int days = pokemon.PokerusDays;
+
+bool isInfected = pokemon.IsPokerusInfected;
+bool isCured = pokemon.IsPokerusCured;
+
+// Infect with Pokérus
+pokemon.IsPokerusInfected = true;
+
+// Cure Pokérus
+pokemon.IsPokerusCured = true;
+```
+
+### Hidden Power
+
+```csharp
+// Hidden Power type (based on IVs)
+int hpType = pokemon.HPType;      // 0-15 (type index)
+int hpPower = pokemon.HPPower;    // Base power
+
+// Set Hidden Power type (adjusts IVs)
+pokemon.HPType = 1;  // Fighting
+```
+
+## Data Export and Cloning
+
+### File Operations
+
+```csharp
+// File name
+string fileName = pokemon.FileName;  // "025 - Pikachu - 123456.pk8"
+string fileNameNoExt = pokemon.FileNameWithoutExtension;
+string extension = pokemon.Extension;  // "pk8"
+
+// Export formats
+byte[] encryptedBoxData = pokemon.EncryptedBoxData;
+byte[] encryptedPartyData = pokemon.EncryptedPartyData;
+byte[] decryptedBoxData = pokemon.DecryptedBoxData;
+byte[] decryptedPartyData = pokemon.DecryptedPartyData;
+```
+
+### Cloning
+
+```csharp
+// Deep clone a Pokémon
+PKM clone = pokemon.Clone();
+
+// Clone maintains all properties but is a separate instance
+clone.Nickname = "Cloned";
+Console.WriteLine(pokemon.Nickname);  // Original unchanged
+```
+
+### Format Conversion
+
+```csharp
+// Transfer properties between formats
+PK7 pk7 = new PK7();
+PK8 pk8 = new PK8();
+
+// Copy all compatible properties
+pk7.TransferPropertiesWithReflection(pk8);
+```
+
+## Validation
+
+### Checksum
+
+```csharp
+// Verify checksum
+bool isValid = pokemon.ChecksumValid;
+
+// Recalculate checksum
+pokemon.RefreshChecksum();
+
+// Validity flag
+bool valid = pokemon.Valid;
+```
+
+### Gender Validation
+
+```csharp
+bool genderValid = pokemon.IsGenderValid();
+```
+
+### Origin Validation
+
+```csharp
+bool originValid = pokemon.IsOriginValid;  // Species <= MaxSpeciesID
+bool hasOriginalMet = pokemon.HasOriginalMetLocation;
+bool isUntraded = pokemon.IsUntraded;
+```
+
+## Generation-Specific Features
+
+### Generation 8 Example (PK8)
+
+```csharp
+if (pokemon is PK8 pk8)
+{
+    // Dynamax type
+    int dynamaxType = pk8.DynamaxType;
+    pk8.DynamaxType = 1;
+    
+    // Fix memories for Gen 8
+    pk8.FixMemories();
+    
+    // Check if belongs to trainer
+    bool belongsToTrainer = pk8.BelongsTo(trainerInfo);
+    
+    // Update handler info
+    pk8.UpdateHandler(trainerInfo);
+}
+```
+
+### Hyper Training (Gen 7+)
+
+```csharp
+if (pokemon is IHyperTrain ht)
+{
+    // Check/set hyper trained stats
+    bool htHP = ht.HT_HP;
+    bool htATK = ht.HT_ATK;
+    bool htDEF = ht.HT_DEF;
+    bool htSPA = ht.HT_SPA;
+    bool htSPD = ht.HT_SPD;
+    bool htSPE = ht.HT_SPE;
+    
+    // Hyper train all stats
+    ht.HT_HP = ht.HT_ATK = ht.HT_DEF = true;
+    ht.HT_SPA = ht.HT_SPD = ht.HT_SPE = true;
+}
+```
+
+## Working with Status
+
+```csharp
+// Battle status condition
+int status = pokemon.Status_Condition;
+pokemon.Status_Condition = 0;  // Clear status
+
+// Current level (calculated from EXP)
+byte currentLevel = pokemon.CurrentLevel;
+
+// Set level (updates EXP)
+pokemon.CurrentLevel = 100;
+```
+
+## Best Practices
+
+<Warning>
+Always refresh checksums before exporting:
+```csharp
+pokemon.RefreshChecksum();
+byte[] data = pokemon.EncryptedBoxData;
+```
+</Warning>
+
+<Tip>
+Use `ResetPartyStats()` after modifying stats, IVs, EVs, or level:
+```csharp
+pokemon.SetIVs(newIVs);
+pokemon.SetEVs(newEVs);
+pokemon.ResetPartyStats();  // Recalculates battle stats
+```
+</Tip>
+
+<Info>
+Generation limits vary by format. Check maximums:
+```csharp
+ushort maxMove = pokemon.MaxMoveID;
+ushort maxSpecies = pokemon.MaxSpeciesID;
+int maxItem = pokemon.MaxItemID;
+int maxAbility = pokemon.MaxAbilityID;
+int maxIV = pokemon.MaxIV;        // Usually 31
+int maxEV = pokemon.MaxEV;        // Usually 252
+```
+</Info>
+
+## Related Resources
+
+- [Save Files](/concepts/save-files) - Managing save file data
+- [Legality Analysis](/concepts/legality-analysis) - Validating Pokémon
+- [Game Versions](/concepts/game-versions) - Version identification

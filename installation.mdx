@@ -1,0 +1,159 @@
+---
+title: Installation
+description: Learn how to install and set up PKHeX.Core in your C# project
+---
+
+PKHeX.Core is a comprehensive Pokémon data manipulation library for C# that supports all Pokémon generations and formats.
+
+## Prerequisites
+
+Before installing PKHeX.Core, ensure you have:
+
+- **.NET 10 SDK** or later installed
+- A C# project targeting .NET 10 or higher
+- Basic knowledge of C# programming
+
+<Note>
+  PKHeX.Core targets .NET 10 (`net10.0`). Make sure your project is compatible with this framework version.
+</Note>
+
+## Installation Methods
+
+<Steps>
+
+### Install via NuGet Package Manager
+
+The easiest way to install PKHeX.Core is through NuGet:
+
+<CodeGroup>
+
+```bash .NET CLI
+dotnet add package PKHeX.Core
+```
+
+```bash Package Manager Console
+Install-Package PKHeX.Core
+```
+
+```xml Manual .csproj Edit
+<ItemGroup>
+  <PackageReference Include="PKHeX.Core" Version="*" />
+</ItemGroup>
+```
+
+</CodeGroup>
+
+### Verify Installation
+
+After installation, verify that PKHeX.Core is properly referenced in your project:
+
+```bash
+dotnet list package
+```
+
+You should see `PKHeX.Core` listed in your project dependencies.
+
+### Create Your First Project
+
+Create a new console application to test PKHeX.Core:
+
+```bash
+dotnet new console -n MyPKHeXApp
+cd MyPKHeXApp
+dotnet add package PKHeX.Core
+```
+
+</Steps>
+
+## Project Configuration
+
+### Minimum .csproj Setup
+
+Ensure your project file (`.csproj`) targets the correct framework:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PKHeX.Core" Version="*" />
+  </ItemGroup>
+</Project>
+```
+
+### Import the Namespace
+
+In your C# files, import the PKHeX.Core namespace:
+
+```csharp
+using PKHeX.Core;
+```
+
+## Package Information
+
+<CardGroup cols={2}>
+  <Card title="Package ID" icon="box">
+    PKHeX.Core
+  </Card>
+  <Card title="License" icon="scale-balanced">
+    GPL-3.0-or-later
+  </Card>
+  <Card title="Target Framework" icon="code">
+    .NET 10.0
+  </Card>
+  <Card title="Repository" icon="github">
+    [kwsch/PKHeX](https://github.com/kwsch/PKHeX)
+  </Card>
+</CardGroup>
+
+<Warning>
+  PKHeX.Core is licensed under GPL-3.0-or-later. Make sure your project complies with the license terms, especially if you're distributing your application.
+</Warning>
+
+## Troubleshooting
+
+### Common Installation Issues
+
+<AccordionGroup>
+  <Accordion title="Framework version mismatch">
+    If you encounter errors about framework versions, ensure your project targets .NET 10 or later:
+    
+    ```xml
+    <TargetFramework>net10.0</TargetFramework>
+    ```
+  </Accordion>
+
+  <Accordion title="NuGet package not found">
+    Make sure you have the latest NuGet sources configured:
+    
+    ```bash
+    dotnet nuget list source
+    dotnet restore
+    ```
+  </Accordion>
+
+  <Accordion title="Build errors after installation">
+    Clean and rebuild your project:
+    
+    ```bash
+    dotnet clean
+    dotnet build
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Learn the basics with a quick start tutorial
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/save-files">
+    Understand save files and Pokémon data structures
+  </Card>
+</CardGroup>

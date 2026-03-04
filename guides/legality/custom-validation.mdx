@@ -1,0 +1,708 @@
+---
+title: "Custom Validation Logic"
+description: "Extending PKHeX's legality system with custom validation rules"
+icon: "code"
+---
+
+## External Legality Checkers
+
+PKHeX allows you to register custom validation logic that runs after the standard legality checks. This is done through the `IExternalLegalityChecker` interface.
+
+## Creating a Custom Checker
+
+### Step 1: Implement the Interface
+
+```csharp
+using PKHeX.Core;
+
+public class MyCustomChecker : IExternalLegalityChecker
+{
+    // Unique identifier for this checker
+    public ushort Identity => 1000; // Use a unique number
+    
+    // Display name
+    public string Name => "My Custom Validator";
+    
+    // Perform validation
+    public void Verify(LegalityAnalysis analysis)
+    {
+        // Your custom validation logic here
+        var pk = analysis.Entity;
+        
+        // Example: Check if nickname contains profanity
+        if (ContainsProfanity(pk.Nickname))
+        {
+            var result = new CheckResult
+            {
+                Judgement = Severity.Invalid,
+                Identifier = CheckIdentifier.Nickname,
+                Result = LegalityCheckResultCode.External,
+                Value = Identity // Store our identity for localization
+            };
+            
+            analysis.AddLine(result);
+        }
+    }
+    
+    // Provide localized messages
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        // Return custom message for your results
+        return "Nickname contains inappropriate content.";
+    }
+    
+    private bool ContainsProfanity(string text)
+    {
+        // Your implementation
+        return false;
+    }
+}
+```
+
+### Step 2: Register the Checker
+
+```csharp
+using PKHeX.Core;
+
+public class Program
+{
+    static Program()
+    {
+        // Register at application startup
+        var checker = new MyCustomChecker();
+        ExternalLegalityCheck.RegisterChecker(checker);
+    }
+    
+    static void Main()
+    {
+        // Now all legality checks will include your custom validator
+        var pk = LoadPokemon();
+        var analysis = new LegalityAnalysis(pk);
+        
+        // Your checker ran automatically
+        if (!analysis.Valid)
+        {
+            Console.WriteLine("Validation failed (including custom checks)");
+        }
+    }
+}
+```
+
+## Example: Competitive Battle Validator
+
+Validate Pokémon for competitive battle format rules:
+
+```csharp
+using PKHeX.Core;
+using System.Collections.Generic;
+using System.Linq;
+
+public class CompetitiveBattleChecker : IExternalLegalityChecker
+{
+    public ushort Identity => 2000;
+    public string Name => "Competitive Battle Validator";
+    
+    private static readonly HashSet<ushort> BannedSpecies = new()
+    {
+        150, // Mewtwo
+        382, // Kyogre
+        383, // Groudon
+        384, // Rayquaza
+        // ... etc
+    };
+    
+    private static readonly HashSet<ushort> BannedAbilities = new()
+    {
+        95,  // Moody
+        // ... etc
+    };
+    
+    private static readonly HashSet<ushort> BannedMoves = new()
+    {
+        560, // Dark Void
+        // ... etc
+    };
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        var pk = analysis.Entity;
+        
+        // Check for banned species
+        if (BannedSpecies.Contains(pk.Species))
+        {
+            AddInvalid(analysis, CheckIdentifier.Encounter,
+                "Species is banned in competitive play.");
+        }
+        
+        // Check for banned abilities
+        if (BannedAbilities.Contains((ushort)pk.Ability))
+        {
+            AddInvalid(analysis, CheckIdentifier.Ability,
+                "Ability is banned in competitive play.");
+        }
+        
+        // Check for banned moves
+        var moves = new[] { pk.Move1, pk.Move2, pk.Move3, pk.Move4 };
+        foreach (var move in moves)
+        {
+            if (BannedMoves.Contains(move))
+            {
+                AddInvalid(analysis, CheckIdentifier.CurrentMove,
+                    $"Move {move} is banned in competitive play.");
+            }
+        }
+        
+        // Check level restriction (e.g., Level 50 for VGC)
+        if (pk.CurrentLevel > 50)
+        {
+            AddInvalid(analysis, CheckIdentifier.Level,
+                "Level must be 50 or lower for VGC.");
+        }
+    }
+    
+    private void AddInvalid(LegalityAnalysis analysis, CheckIdentifier identifier, string message)
+    {
+        var result = new CheckResult
+        {
+            Judgement = Severity.Invalid,
+            Identifier = identifier,
+            Result = LegalityCheckResultCode.External,
+            Value = Identity
+        };
+        
+        analysis.AddLine(result);
+        
+        // Store message for localization
+        _messages[identifier] = message;
+    }
+    
+    private Dictionary<CheckIdentifier, string> _messages = new();
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        if (_messages.TryGetValue(chk.Identifier, out var message))
+            return message;
+        
+        return "Failed competitive battle validation.";
+    }
+}
+```
+
+## Example: Event Distribution Validator
+
+Validate event Pokémon against distribution dates:
+
+```csharp
+using PKHeX.Core;
+using System;
+
+public class EventDateChecker : IExternalLegalityChecker
+{
+    public ushort Identity => 3000;
+    public string Name => "Event Date Validator";
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        var pk = analysis.Entity;
+        var encounter = analysis.EncounterMatch;
+        
+        // Only check Mystery Gifts
+        if (encounter is not MysteryGift gift)
+            return;
+        
+        // Check if the met date is within distribution window
+        if (pk is IEncounterDate dated)
+        {
+            var metDate = new DateTime(dated.MetYear + 2000, dated.MetMonth, dated.MetDay);
+            
+            // Example: Check against known distribution dates
+            // You would load this from a database
+            var distributionStart = new DateTime(2023, 1, 1);
+            var distributionEnd = new DateTime(2023, 12, 31);
+            
+            if (metDate < distributionStart || metDate > distributionEnd)
+            {
+                var result = new CheckResult
+                {
+                    Judgement = Severity.Invalid,
+                    Identifier = CheckIdentifier.Encounter,
+                    Result = LegalityCheckResultCode.DateOutsideDistributionWindow,
+                    Value = Identity
+                };
+                
+                analysis.AddLine(result);
+            }
+        }
+    }
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        return "Met date is outside the event distribution window.";
+    }
+}
+```
+
+## Example: Shiny Lock Validator
+
+Add additional shiny lock validation:
+
+```csharp
+using PKHeX.Core;
+using System.Collections.Generic;
+
+public class ShinyLockChecker : IExternalLegalityChecker
+{
+    public ushort Identity => 4000;
+    public string Name => "Shiny Lock Validator";
+    
+    // Species that are shiny locked in certain games
+    private static readonly Dictionary<ushort, EntityContext> ShinyLocks = new()
+    {
+        { 249, EntityContext.Gen7 },    // Lugia in USUM
+        { 250, EntityContext.Gen7 },    // Ho-Oh in USUM
+        { 716, EntityContext.Gen7 },    // Xerneas in USUM
+        { 717, EntityContext.Gen7 },    // Yveltal in USUM
+        // ... etc
+    };
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        var pk = analysis.Entity;
+        
+        if (!pk.IsShiny)
+            return; // Not shiny, no problem
+        
+        var encounter = analysis.EncounterMatch;
+        
+        // Check if this species has a shiny lock
+        if (ShinyLocks.TryGetValue(pk.Species, out var lockedContext))
+        {
+            if (encounter.Context == lockedContext)
+            {
+                var result = new CheckResult
+                {
+                    Judgement = Severity.Invalid,
+                    Identifier = CheckIdentifier.Shiny,
+                    Result = LegalityCheckResultCode.External,
+                    Value = Identity
+                };
+                
+                analysis.AddLine(result);
+            }
+        }
+    }
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        return "This Pokémon is shiny locked in its origin game.";
+    }
+}
+```
+
+## Example: Ribbon Validator
+
+Validate that ribbon combinations are possible:
+
+```csharp
+using PKHeX.Core;
+
+public class RibbonLogicChecker : IExternalLegalityChecker
+{
+    public ushort Identity => 5000;
+    public string Name => "Ribbon Logic Validator";
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        var pk = analysis.Entity;
+        
+        // Example: Champion Ribbon requires beating Elite Four
+        // but Partner Ribbon is only for starter Pokémon
+        if (pk is IRibbonSetCommon6 ribbons)
+        {
+            if (ribbons.RibbonChampionKalos && ribbons.RibbonPartner)
+            {
+                // This combination might be suspicious
+                var result = new CheckResult
+                {
+                    Judgement = Severity.Fishy,
+                    Identifier = CheckIdentifier.Ribbon,
+                    Result = LegalityCheckResultCode.External,
+                    Value = Identity
+                };
+                
+                analysis.AddLine(result);
+            }
+        }
+        
+        // Check for impossible ribbon counts
+        if (pk is IRibbonSetCommon8 ribbons8)
+        {
+            int ribbonCount = CountRibbons(ribbons8);
+            
+            // Example: No single Pokémon should have every ribbon
+            if (ribbonCount > 50) // Arbitrary threshold
+            {
+                var result = new CheckResult
+                {
+                    Judgement = Severity.Fishy,
+                    Identifier = CheckIdentifier.Ribbon,
+                    Result = LegalityCheckResultCode.External,
+                    Value = Identity
+                };
+                
+                analysis.AddLine(result);
+            }
+        }
+    }
+    
+    private int CountRibbons(object ribbons)
+    {
+        // Count non-zero ribbon properties
+        int count = 0;
+        var type = ribbons.GetType();
+        
+        foreach (var prop in type.GetProperties())
+        {
+            if (prop.PropertyType == typeof(bool))
+            {
+                if ((bool)prop.GetValue(ribbons))
+                    count++;
+            }
+        }
+        
+        return count;
+    }
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        return "Ribbon combination is unusual or impossible.";
+    }
+}
+```
+
+## Accessing Analysis Data
+
+Your checker has full access to the analysis:
+
+```csharp
+public void Verify(LegalityAnalysis analysis)
+{
+    // The Pokémon being checked
+    var pk = analysis.Entity;
+    
+    // Personal info (species data)
+    var personal = analysis.PersonalInfo;
+    
+    // Matched encounter
+    var encounter = analysis.EncounterMatch;
+    var original = analysis.EncounterOriginal;
+    
+    // Where it came from
+    var origin = analysis.SlotOrigin;
+    
+    // Detailed info
+    var info = analysis.Info;
+    var generation = info.Generation;
+    var moves = info.Moves;
+    var relearn = info.Relearn;
+    var evolutions = info.EvoChainsAllGens;
+    var pidiv = info.PIDIV;
+    
+    // Existing check results
+    var results = analysis.Results;
+    
+    // You can check what other verifiers found
+    var abilityCheck = results.FirstOrDefault(r => 
+        r.Identifier == CheckIdentifier.Ability);
+    
+    if (abilityCheck.Valid)
+    {
+        // Ability passed standard checks
+    }
+}
+```
+
+## Creating Check Results
+
+```csharp
+public void Verify(LegalityAnalysis analysis)
+{
+    // Invalid result
+    var invalid = new CheckResult
+    {
+        Judgement = Severity.Invalid,
+        Identifier = CheckIdentifier.Misc,
+        Result = LegalityCheckResultCode.External,
+        Value = Identity // Your checker ID
+    };
+    
+    // Fishy/suspicious result
+    var fishy = new CheckResult
+    {
+        Judgement = Severity.Fishy,
+        Identifier = CheckIdentifier.Trainer,
+        Result = LegalityCheckResultCode.External,
+        Value = Identity
+    };
+    
+    // Valid with custom message
+    var valid = new CheckResult
+    {
+        Judgement = Severity.Valid,
+        Identifier = CheckIdentifier.Encounter,
+        Result = LegalityCheckResultCode.External,
+        Value = Identity
+    };
+    
+    // Add results
+    analysis.AddLine(invalid);
+    analysis.AddLine(fishy);
+    analysis.AddLine(valid);
+}
+```
+
+## Including Numeric Arguments
+
+```csharp
+public void Verify(LegalityAnalysis analysis)
+{
+    var pk = analysis.Entity;
+    
+    // Single 32-bit argument
+    var result1 = new CheckResult
+    {
+        Judgement = Severity.Invalid,
+        Identifier = CheckIdentifier.Level,
+        Result = LegalityCheckResultCode.External,
+        Value = 50 // Max level allowed
+    };
+    
+    // Two 16-bit arguments
+    var result2 = new CheckResult
+    {
+        Judgement = Severity.Invalid,
+        Identifier = CheckIdentifier.CurrentMove,
+        Result = LegalityCheckResultCode.External,
+        Argument = 2,    // Move slot
+        Argument2 = 123  // Move ID
+    };
+    
+    analysis.AddLine(result1);
+    analysis.AddLine(result2);
+}
+```
+
+## Localization
+
+Provide messages in multiple languages:
+
+```csharp
+using System.Collections.Generic;
+
+public class MultilingualChecker : IExternalLegalityChecker
+{
+    public ushort Identity => 6000;
+    public string Name => "Multilingual Validator";
+    
+    private Dictionary<string, Dictionary<string, string>> _messages = new()
+    {
+        ["en"] = new()
+        {
+            ["nickname_invalid"] = "Nickname contains invalid characters.",
+            ["trainer_suspicious"] = "Trainer name is suspicious."
+        },
+        ["es"] = new()
+        {
+            ["nickname_invalid"] = "El apodo contiene caracteres no válidos.",
+            ["trainer_suspicious"] = "El nombre del entrenador es sospechoso."
+        },
+        ["ja"] = new()
+        {
+            ["nickname_invalid"] = "ニックネームに無効な文字が含まれています。",
+            ["trainer_suspicious"] = "トレーナー名が疑わしいです。"
+        }
+    };
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        // Your validation logic
+    }
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        // Get current language from localization settings
+        var language = localization.Language.ToString().ToLower();
+        
+        // Determine which message to return based on context
+        var messageKey = chk.Identifier switch
+        {
+            CheckIdentifier.Nickname => "nickname_invalid",
+            CheckIdentifier.Trainer => "trainer_suspicious",
+            _ => "unknown"
+        };
+        
+        // Return localized message
+        if (_messages.TryGetValue(language, out var messages))
+        {
+            if (messages.TryGetValue(messageKey, out var message))
+                return message;
+        }
+        
+        // Fallback to English
+        return _messages["en"][messageKey];
+    }
+}
+```
+
+## Unregistering Checkers
+
+```csharp
+var checker = new MyCustomChecker();
+
+// Register
+ExternalLegalityCheck.RegisterChecker(checker);
+
+// Later, if needed, unregister
+ExternalLegalityCheck.UnregisterChecker(checker);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Unique Identity Numbers">
+    Choose identity numbers that won't conflict with other checkers. Use a range like 1000-9999 for custom checkers.
+    
+    ```csharp
+    public ushort Identity => 1234; // Pick a unique number
+    ```
+  </Accordion>
+  
+  <Accordion title="Don't Duplicate Standard Checks">
+    PKHeX already validates most standard legality. Focus on:
+    - Game-specific rules not in PKHeX
+    - Competitive format restrictions
+    - Community-specific rules
+    - Additional sanity checks
+  </Accordion>
+  
+  <Accordion title="Use Appropriate Severity">
+    - `Severity.Invalid`: Definitively illegal
+    - `Severity.Fishy`: Suspicious but technically valid
+    - `Severity.Valid`: Passed your custom check (rare)
+  </Accordion>
+  
+  <Accordion title="Provide Good Error Messages">
+    Your `Localize` method should return clear, actionable messages.
+    
+    ```csharp
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        return "Move is banned in VGC 2024 Series 1.";
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete Example
+
+```csharp
+using PKHeX.Core;
+using System;
+using System.Collections.Generic;
+
+public class CustomValidator : IExternalLegalityChecker
+{
+    public ushort Identity => 7000;
+    public string Name => "Custom Validator";
+    
+    private List<string> _errors = new();
+    
+    public void Verify(LegalityAnalysis analysis)
+    {
+        _errors.Clear();
+        
+        var pk = analysis.Entity;
+        
+        // Check 1: Validate nickname length
+        if (pk.Nickname.Length > 12)
+        {
+            _errors.Add("Nickname too long");
+            AddInvalid(analysis, CheckIdentifier.Nickname);
+        }
+        
+        // Check 2: Validate level
+        if (pk.CurrentLevel > 100)
+        {
+            _errors.Add("Level exceeds maximum");
+            AddInvalid(analysis, CheckIdentifier.Level);
+        }
+        
+        // Check 3: Validate moves
+        var moves = new[] { pk.Move1, pk.Move2, pk.Move3, pk.Move4 };
+        var duplicates = moves.Where(m => m != 0)
+                               .GroupBy(m => m)
+                               .Where(g => g.Count() > 1);
+        
+        if (duplicates.Any())
+        {
+            _errors.Add("Duplicate moves detected");
+            AddInvalid(analysis, CheckIdentifier.CurrentMove);
+        }
+    }
+    
+    private void AddInvalid(LegalityAnalysis analysis, CheckIdentifier identifier)
+    {
+        var result = new CheckResult
+        {
+            Judgement = Severity.Invalid,
+            Identifier = identifier,
+            Result = LegalityCheckResultCode.External,
+            Value = Identity
+        };
+        
+        analysis.AddLine(result);
+    }
+    
+    public string Localize(CheckResult chk, LegalityLocalizationSet localization, LegalityAnalysis data)
+    {
+        if (_errors.Count > 0)
+            return string.Join("; ", _errors);
+        
+        return "Custom validation failed.";
+    }
+}
+
+// Usage
+public class Program
+{
+    static void Main()
+    {
+        // Register at startup
+        ExternalLegalityCheck.RegisterChecker(new CustomValidator());
+        
+        // Now use LegalityAnalysis normally
+        var pk = LoadPokemon();
+        var analysis = new LegalityAnalysis(pk);
+        
+        if (!analysis.Valid)
+        {
+            foreach (var result in analysis.Results.Where(r => !r.Valid))
+            {
+                Console.WriteLine($"{result.Identifier}: {result.Result}");
+            }
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="shield-check" href="/guides/legality/overview">
+    Return to legality system overview
+  </Card>
+  
+  <Card title="Running Checks" icon="play" href="/guides/legality/running-checks">
+    Learn how to perform legality checks
+  </Card>
+</CardGroup>

@@ -1,0 +1,629 @@
+---
+title: "Modifying Save Data"
+description: "Learn how to safely modify Pokémon, items, trainer data, and more in save files"
+---
+
+## Overview
+
+Once you've loaded a save file, you can modify various aspects including Pokémon, items, trainer information, Pokédex entries, and game progress. PKHeX.Core provides safe APIs for all modifications.
+
+<Warning>
+Always work on a backup copy of save files. Validate checksums after modifications.
+</Warning>
+
+## Modifying Trainer Information
+
+### Basic Trainer Data
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    // Change trainer name
+    sav.OT = "ASH";
+    
+    // Change Trainer IDs
+    sav.TID16 = 12345;
+    sav.SID16 = 54321;
+    
+    // Or set full ID32 (Gen 7+)
+    sav.ID32 = 0x12345678;
+    
+    // Change gender (0 = Male, 1 = Female)
+    sav.Gender = 0;
+    
+    // Change money
+    sav.Money = 999999;
+    
+    // Mark as edited
+    Console.WriteLine($"Edited: {sav.State.Edited}");
+}
+```
+
+### Play Time
+
+```csharp
+// Modify play time
+sav.PlayedHours = 255;
+sav.PlayedMinutes = 59;
+sav.PlayedSeconds = 59;
+
+Console.WriteLine($"Play Time: {sav.PlayTimeString}");
+```
+
+### Generation-Specific Properties
+
+```csharp
+// Gen 6+ properties
+if (sav is SAV6 sav6)
+{
+    sav6.Region = 1; // Region code
+    sav6.Country = 49; // Country code
+    sav6.GameSyncID = "1234567890123456";
+}
+
+// Gen 7+ properties
+if (sav is SAV7 sav7)
+{
+    sav7.TrainerTID7 = 123456; // New TID format
+}
+
+// Gen 8+ properties
+if (sav is SAV8SWSH swsh)
+{
+    swsh.MyStatus.OT = "TRAINER";
+    swsh.MyStatus.Money = 999999;
+}
+```
+
+## Working with Pokémon
+
+### Reading Party Pokémon
+
+```csharp
+var sav = SaveUtil.GetSaveFile("save.sav");
+
+if (sav != null)
+{
+    Console.WriteLine($"Party Count: {sav.PartyCount}");
+    
+    for (int i = 0; i < sav.PartyCount; i++)
+    {
+        var pk = sav.GetPartySlot(i);
+        Console.WriteLine($"Slot {i + 1}: {pk.Species} Lv.{pk.CurrentLevel}");
+        Console.WriteLine($"  Nickname: {pk.Nickname}");
+        Console.WriteLine($"  OT: {pk.OriginalTrainerName}");
+        Console.WriteLine($"  Moves: {string.Join(", ", pk.Moves)}");
+    }
+}
+```
+
+### Reading Box Pokémon
+
+```csharp
+// Read a specific box
+int boxIndex = 0;
+for (int slot = 0; slot < sav.BoxSlotCount; slot++)
+{
+    var pk = sav.GetBoxSlotAtIndex(boxIndex, slot);
+    
+    if (pk.Species != 0) // Not empty
+    {
+        Console.WriteLine($"Box {boxIndex + 1} Slot {slot + 1}: {pk.Species}");
+    }
+}
+```
+
+### Adding Pokémon to Party
+
+```csharp
+// Create a new Pokémon
+var pk = sav.BlankPKM;
+pk.Species = (ushort)Species.Pikachu;
+pk.Form = 0;
+pk.CurrentLevel = 50;
+pk.Move1 = (ushort)Move.Thunderbolt;
+pk.Move2 = (ushort)Move.QuickAttack;
+pk.Move3 = (ushort)Move.IronTail;
+pk.Move4 = (ushort)Move.ElectroBall;
+
+// Set legal values
+pk.HealPP();
+pk.Nickname = "PIKACHU";
+pk.Ball = (byte)Ball.Poke;
+pk.MetLevel = 5;
+pk.MetLocation = 1;
+
+// Apply trainer info
+pk.OriginalTrainerName = sav.OT;
+pk.TID16 = sav.TID16;
+pk.SID16 = sav.SID16;
+pk.OriginalTrainerGender = sav.Gender;
+
+// Refresh calculated values
+pk.RefreshChecksum();
+pk.RefreshAbility(pk.AbilityNumber);
+
+// Add to party
+if (sav.PartyCount < 6)
+{
+    sav.SetPartySlot(pk, sav.PartyCount);
+    Console.WriteLine("Pokémon added to party!");
+}
+else
+{
+    Console.WriteLine("Party is full!");
+}
+```
+
+### Adding Pokémon to Box
+
+```csharp
+// Add to specific box and slot
+int targetBox = 0;
+int targetSlot = 0;
+
+sav.SetBoxSlotAtIndex(pk, targetBox, targetSlot);
+Console.WriteLine($"Pokémon added to Box {targetBox + 1}, Slot {targetSlot + 1}");
+```
+
+### Modifying Existing Pokémon
+
+```csharp
+// Get a Pokémon from party
+var pk = sav.GetPartySlot(0);
+
+// Modify properties
+pk.CurrentLevel = 100;
+pk.Species = (ushort)Species.Charizard;
+pk.Form = 0;
+pk.Nickname = "CHARIZARD";
+
+// Modify stats
+pk.IV_HP = 31;
+pk.IV_ATK = 31;
+pk.IV_DEF = 31;
+pk.IV_SPA = 31;
+pk.IV_SPD = 31;
+pk.IV_SPE = 31;
+
+pk.EV_HP = 252;
+pk.EV_ATK = 252;
+pk.EV_SPE = 4;
+
+// Modify moves
+pk.Move1 = (ushort)Move.FireBlast;
+pk.Move2 = (ushort)Move.AirSlash;
+pk.Move3 = (ushort)Move.DragonPulse;
+pk.Move4 = (ushort)Move.SolarBeam;
+pk.HealPP();
+
+// Set as shiny
+pk.SetShiny();
+
+// Update checksum
+pk.RefreshChecksum();
+
+// Write back to save
+sav.SetPartySlot(pk, 0);
+Console.WriteLine("Pokémon modified!");
+```
+
+### Cloning Pokémon
+
+```csharp
+// Clone a Pokémon
+var original = sav.GetPartySlot(0);
+var clone = original.Clone();
+
+// Add clone to box
+sav.SetBoxSlotAtIndex(clone, 0, 0);
+```
+
+## Modifying Items
+
+### Reading Items
+
+```csharp
+var inventory = sav.Inventory;
+
+// Get all items of a specific pouch
+var medicines = inventory.Medicine.Items;
+foreach (var item in medicines)
+{
+    if (item.Count > 0)
+    {
+        Console.WriteLine($"{item.Index}: {item.Count}x");
+    }
+}
+```
+
+### Adding/Modifying Items
+
+```csharp
+// Gen 8 example
+if (sav is SAV8SWSH swsh)
+{
+    var items = swsh.Items;
+    
+    // Give max regular items
+    items.GiveItem(0001, 999); // Master Ball
+    items.GiveItem(0002, 999); // Ultra Ball
+    items.GiveItem(0017, 999); // Max Potion
+    
+    Console.WriteLine("Items added!");
+}
+
+// Gen 9 example
+if (sav is SAV9SV sv)
+{
+    var items = sv.Items;
+    
+    items.GiveItem(0001, 999); // Master Ball
+    items.GiveItem(1234, 50);  // Any item by ID
+}
+```
+
+### Working with Item Pouches
+
+```csharp
+var inventory = sav.Inventory;
+
+// Access different pouches
+var regularItems = inventory.Items;
+var keyItems = inventory.KeyItems;
+var tmhm = inventory.TMHMs;
+var medicine = inventory.Medicine;
+var berries = inventory.Berries;
+var balls = inventory.Balls;
+var battleItems = inventory.BattleItems;
+
+// Modify a pouch
+foreach (var item in regularItems.Items)
+{
+    if (item.Count > 0)
+    {
+        item.Count = 999; // Max out all items
+    }
+}
+
+// Write back
+inventory.Items = regularItems;
+```
+
+## Modifying Pokédex
+
+### Setting Pokédex Entries
+
+```csharp
+// Mark Pokémon as seen/caught
+if (sav is SAV8SWSH swsh)
+{
+    var dex = swsh.Zukan;
+    
+    // Set species as seen
+    dex.SetSeen((ushort)Species.Pikachu, true);
+    
+    // Set species as caught
+    dex.SetCaught((ushort)Species.Pikachu, true);
+    
+    // Set specific form as caught
+    dex.SetCaught((ushort)Species.Pikachu, 0, true);
+}
+
+if (sav is SAV9SV sv)
+{
+    var dex = sv.Zukan;
+    
+    // Complete Pokédex
+    for (ushort species = 1; species <= sv.MaxSpeciesID; species++)
+    {
+        if (sv.Personal.IsSpeciesInGame(species))
+        {
+            dex.SetCaught(species, true);
+            dex.SetSeen(species, true);
+        }
+    }
+}
+```
+
+### Completing Pokédex
+
+```csharp
+public void CompleteDex(SaveFile sav)
+{
+    if (sav is SAV8SWSH swsh)
+    {
+        var dex = swsh.Zukan;
+        for (ushort i = 1; i <= swsh.MaxSpeciesID; i++)
+        {
+            if (swsh.Personal.IsSpeciesInGame(i))
+            {
+                dex.SetCaught(i, true);
+            }
+        }
+        Console.WriteLine("Pokédex completed!");
+    }
+}
+```
+
+## Modifying Box Names and Wallpapers
+
+```csharp
+if (sav is IBoxDetailName boxNames)
+{
+    // Set box names
+    for (int i = 0; i < sav.BoxCount; i++)
+    {
+        boxNames.SetBoxName(i, $"Box {i + 1}");
+    }
+}
+
+if (sav is IBoxDetailWallpaper wallpapers)
+{
+    // Set box wallpapers
+    for (int i = 0; i < sav.BoxCount; i++)
+    {
+        wallpapers.SetBoxWallpaper(i, i % 16); // Cycle through wallpapers
+    }
+}
+```
+
+## Modifying Event Flags
+
+### Setting Event Flags
+
+```csharp
+if (sav is IEventFlagProvider flagProvider)
+{
+    // Set a specific event flag
+    flagProvider.SetEventFlag(1234, true);
+    
+    // Check if flag is set
+    bool isSet = flagProvider.GetEventFlag(1234);
+    Console.WriteLine($"Flag 1234: {isSet}");
+}
+
+// Gen-specific flags
+if (sav is SAV8SWSH swsh)
+{
+    // Set bike unlocked flag (example)
+    swsh.SetEventFlag(0x1234, true);
+}
+```
+
+### Working with Work Values
+
+```csharp
+if (sav is IEventWorkProvider<ushort> workProvider)
+{
+    // Set work value (variables used by game events)
+    workProvider.SetWork(100, 999);
+    
+    // Get work value
+    ushort value = workProvider.GetWork(100);
+    Console.WriteLine($"Work 100: {value}");
+}
+```
+
+## Modifying Game Progress
+
+### Badges (Older Generations)
+
+```csharp
+if (sav is SAV4 sav4)
+{
+    // Set all badges
+    for (int i = 0; i < 8; i++)
+    {
+        sav4.SetFlag(sav4.GetWorkBlock(), i, true);
+    }
+}
+
+if (sav is SAV6 sav6)
+{
+    sav6.Badges = 0xFF; // All 8 badges
+}
+```
+
+### Battle Points
+
+```csharp
+if (sav is SAV6 sav6)
+{
+    sav6.BP = 9999;
+}
+
+if (sav is SAV8SWSH swsh)
+{
+    swsh.SetValue<uint>(0xYourBPKey, 9999);
+}
+```
+
+## Working with Multiple Pokémon
+
+### Batch Modifications
+
+```csharp
+public void MaximizeAllPartyPokemon(SaveFile sav)
+{
+    for (int i = 0; i < sav.PartyCount; i++)
+    {
+        var pk = sav.GetPartySlot(i);
+        
+        // Max level
+        pk.CurrentLevel = 100;
+        
+        // Max IVs
+        pk.IV_HP = pk.IV_ATK = pk.IV_DEF = 31;
+        pk.IV_SPA = pk.IV_SPD = pk.IV_SPE = 31;
+        
+        // Max happiness
+        pk.CurrentFriendship = 255;
+        
+        // Heal
+        pk.Heal();
+        pk.HealPP();
+        
+        // Update checksum
+        pk.RefreshChecksum();
+        
+        // Write back
+        sav.SetPartySlot(pk, i);
+    }
+    
+    Console.WriteLine("All party Pokémon maximized!");
+}
+```
+
+### Box Operations
+
+```csharp
+// Clear a box
+public void ClearBox(SaveFile sav, int boxIndex)
+{
+    for (int slot = 0; slot < sav.BoxSlotCount; slot++)
+    {
+        sav.SetBoxSlotAtIndex(sav.BlankPKM, boxIndex, slot);
+    }
+}
+
+// Copy box to another
+public void CopyBox(SaveFile sav, int sourceBox, int destBox)
+{
+    for (int slot = 0; slot < sav.BoxSlotCount; slot++)
+    {
+        var pk = sav.GetBoxSlotAtIndex(sourceBox, slot);
+        sav.SetBoxSlotAtIndex(pk.Clone(), destBox, slot);
+    }
+}
+```
+
+## Generation-Specific Features
+
+### Gen 8 Records
+
+```csharp
+if (sav is SAV8SWSH swsh)
+{
+    var records = swsh.Records;
+    
+    // Set battle records
+    records.SetRecord(0, 999); // Example record
+    
+    Console.WriteLine("Records modified!");
+}
+```
+
+### Gen 9 Fashion and Appearance
+
+```csharp
+if (sav is SAV9SV sv)
+{
+    var fashion = sv.PlayerFashion;
+    var appearance = sv.PlayerAppearance;
+    
+    // Unlock all fashion items
+    // (specific implementation depends on block structure)
+    
+    Console.WriteLine("Fashion unlocked!");
+}
+```
+
+## Data Validation
+
+### Validating Modified Pokémon
+
+```csharp
+using PKHeX.Core;
+
+var pk = sav.GetPartySlot(0);
+
+// Validate the Pokémon
+var la = new LegalityAnalysis(pk);
+
+if (la.Valid)
+{
+    Console.WriteLine("Pokémon is legal!");
+}
+else
+{
+    Console.WriteLine("Pokémon has legality issues:");
+    foreach (var line in la.Report)
+    {
+        Console.WriteLine($"  - {line}");
+    }
+}
+```
+
+### Sanitizing Data
+
+```csharp
+// Apply sanity checks
+public PKM SanitizePokemon(PKM pk, SaveFile sav)
+{
+    // Ensure level is valid
+    if (pk.CurrentLevel > 100)
+        pk.CurrentLevel = 100;
+    
+    // Ensure stats are within bounds
+    if (pk.IV_HP > 31) pk.IV_HP = 31;
+    if (pk.IV_ATK > 31) pk.IV_ATK = 31;
+    // ... etc
+    
+    // Ensure moves are valid
+    var learnset = pk.GetLegalMoves();
+    // Validate moves against learnset
+    
+    pk.RefreshChecksum();
+    return pk;
+}
+```
+
+<Note>
+Always call `pk.RefreshChecksum()` after modifying a Pokémon to update its internal checksum.
+</Note>
+
+## Best Practices
+
+1. **Always work on copies**: Never modify the original save file directly
+2. **Validate data**: Check bounds and legal values before setting
+3. **Update checksums**: Call `RefreshChecksum()` on modified Pokémon
+4. **Mark as edited**: The `State.Edited` flag tracks changes
+5. **Test modifications**: Load the modified save in-game to verify
+
+```csharp
+public SaveFile SafeModification(string path)
+{
+    // Load save
+    var sav = SaveUtil.GetSaveFile(path);
+    if (sav == null) return null;
+    
+    // Clone for safety
+    var modified = sav.Clone();
+    
+    // Make modifications
+    modified.OT = "TEST";
+    
+    // Validate
+    if (modified.ChecksumsValid)
+    {
+        return modified;
+    }
+    
+    return null;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Exporting Saves" icon="floppy-disk" href="/guides/save-files/exporting-saves">
+    Learn how to export and write modified save files
+  </Card>
+  
+  <Card title="Creating Pokémon" icon="sparkles" href="/guides/pokemon/creating-pokemon">
+    Create new Pokémon with proper attributes
+  </Card>
+</CardGroup>

@@ -1,0 +1,554 @@
+---
+title: Applicators
+description: Classes for applying modifications to PKM data
+---
+
+# Applicators
+
+Applicator classes provide specialized logic for applying modifications to PKM entities. Each applicator focuses on a specific aspect of Pokémon data, such as balls, moves, ribbons, or gender.
+
+## BallApplicator
+
+Applies legal ball values to PKM entities.
+
+**Namespace:** `PKHeX.Core`
+
+### Methods
+
+#### GetLegalBalls
+
+```csharp
+public static int GetLegalBalls(Span<Ball> result, PKM pk)
+public static int GetLegalBalls(Span<Ball> result, PKM pk, LegalityAnalysis la)
+public static int GetLegalBalls(Span<Ball> result, PKM pk, IEncounterTemplate enc)
+```
+
+Gets all balls that are legal for the input PKM.
+
+**Parameters:**
+- `result` - Result storage for legal balls
+- `pk` - Pokémon to retrieve valid balls for
+- `la` - Optional legality analysis
+- `enc` - Optional encounter template
+
+**Returns:** Count of legal Ball values
+
+**Example:**
+```csharp
+Span<Ball> balls = stackalloc Ball[BallApplicator.MaxBallSpanAlloc];
+var count = BallApplicator.GetLegalBalls(balls, pk);
+var legalBalls = balls[..count];
+```
+
+#### ApplyBallLegalRandom
+
+```csharp
+public static byte ApplyBallLegalRandom(PKM pk)
+public static byte ApplyBallLegalRandom(PKM pk, LegalityAnalysis la)
+public static byte ApplyBallLegalRandom(PKM pk, IEncounterTemplate enc)
+```
+
+Applies a random legal ball value if any exist.
+
+**Returns:** The ball value that was applied
+
+#### ApplyBallLegalByColor
+
+```csharp
+public static byte ApplyBallLegalByColor(PKM pk)
+public static byte ApplyBallLegalByColor(PKM pk, PersonalColor color)
+public static byte ApplyBallLegalByColor(PKM pk, LegalityAnalysis la, PersonalColor color)
+public static byte ApplyBallLegalByColor(PKM pk, IEncounterTemplate enc, PersonalColor color)
+```
+
+Applies a legal ball value ordered by color preference.
+
+---
+
+## MoveApplicator
+
+Extension methods for applying movesets to PKM entities.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetMaximumPPUps
+
+```csharp
+public void SetMaximumPPUps(ReadOnlySpan<ushort> moves)
+public void SetMaximumPPUps()
+```
+
+Sets individual PP Up count values depending on whether a move is present.
+
+**Example:**
+```csharp
+pk.SetMaximumPPUps();
+```
+
+#### SetMoves
+
+```csharp
+public void SetMoves(ReadOnlySpan<ushort> input, bool maxPP = false)
+```
+
+Updates the PKM moves and current PP counts.
+
+**Parameters:**
+- `input` - Moves to set (up to 4 moves)
+- `maxPP` - Whether to maximize PP Ups
+
+**Example:**
+```csharp
+ushort[] moves = [1, 2, 3, 4];
+pk.SetMoves(moves, maxPP: true);
+```
+
+#### SetMaximumPPCurrent
+
+```csharp
+public void SetMaximumPPCurrent(ReadOnlySpan<ushort> moves)
+```
+
+Updates individual PP count values for each move slot based on the maximum possible value.
+
+---
+
+## MoveSetApplicator
+
+Extension methods for applying complete movesets with legality considerations.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods (PKM)
+
+#### SetMoveset
+
+```csharp
+public void SetMoveset(bool random = false)
+```
+
+Applies a new legal moveset to the PKM.
+
+**Parameters:**
+- `random` - True to apply a random moveset, false to apply a level-up moveset
+
+**Example:**
+```csharp
+pk.SetMoveset(random: true);
+```
+
+#### SetRelearnMoves
+
+```csharp
+public void SetRelearnMoves(LegalityAnalysis la)
+```
+
+Applies suggested relearn moves based on legality analysis.
+
+#### GetMoveSet
+
+```csharp
+public void GetMoveSet(Span<ushort> moves, bool random = false)
+```
+
+Gets a moveset for the PKM data.
+
+**Parameters:**
+- `moves` - Result storage for moves
+- `random` - Whether to get full movepool with shuffling
+
+### Extension Methods (LegalityAnalysis)
+
+#### GetSuggestedRelearnMoves
+
+```csharp
+public void GetSuggestedRelearnMoves(Span<ushort> moves, IEncounterTemplate? enc = null)
+```
+
+Fetches relearn moves based on the provided legality analysis.
+
+---
+
+## RibbonApplicator
+
+Applies ribbons to PKM entities based on legality.
+
+**Namespace:** `PKHeX.Core`
+
+### Methods
+
+#### SetAllValidRibbons
+
+```csharp
+public static void SetAllValidRibbons(PKM pk)
+public static void SetAllValidRibbons(LegalityAnalysis la)
+public static void SetAllValidRibbons(PKM pk, IEncounterTemplate enc, EvolutionHistory history)
+```
+
+Sets all valid ribbons to the PKM based on legality analysis.
+
+**Example:**
+```csharp
+RibbonApplicator.SetAllValidRibbons(pk);
+```
+
+#### RemoveAllValidRibbons
+
+```csharp
+public static void RemoveAllValidRibbons(PKM pk)
+public static void RemoveAllValidRibbons(LegalityAnalysis la)
+public static void RemoveAllValidRibbons(PKM pk, IEncounterTemplate enc, EvolutionHistory history)
+```
+
+Removes all valid ribbons from the PKM.
+
+#### FixInvalidRibbons
+
+```csharp
+public static void FixInvalidRibbons(in RibbonVerifierArguments args)
+```
+
+Parses the entity for all ribbons, then fixes any ribbon that was invalid.
+
+---
+
+## GenderApplicator
+
+Extension methods for manipulating PKM gender data.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetSaneGender
+
+```csharp
+public void SetSaneGender(byte gender)
+public void SetSaneGender(byte? gender)
+```
+
+Sets the gender value with special consideration for format-specific gender derivation.
+
+**Remarks:** Has special logic for unspecified gender (values > 2).
+
+#### SetGender
+
+```csharp
+public void SetGender(byte gender)
+```
+
+Sets the gender value with special handling for formats that derive gender from IVs or PID.
+
+- **Gen 1-2:** Sets Attack IV from gender
+- **Gen 3-5:** Sets PID based on gender
+- **Gen 6+:** Directly sets gender property
+
+#### GetSaneGender
+
+```csharp
+public byte GetSaneGender()
+```
+
+Sanity checks the provided gender value and returns a sane value.
+
+**Returns:** Most-legal gender value (0=Male, 1=Female, 2=Genderless)
+
+#### SetAttackIVFromGender
+
+```csharp
+public void SetAttackIVFromGender(byte gender)
+```
+
+Updates the Attack IV for a Generation 1/2 format PKM to match the desired gender.
+
+---
+
+## MarkingApplicator
+
+Extension methods for modifying IAppliedMarkings.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetMarkings
+
+```csharp
+public static void SetMarkings(this PKM pk)
+public static void SetMarkings(this IAppliedMarkings<bool> mark, PKM pk)
+public static void SetMarkings(this IAppliedMarkings<MarkingColor> mark, PKM pk)
+```
+
+Sets the applied markings to indicate flawless (or near-flawless) IVs.
+
+**Example:**
+```csharp
+pk.SetMarkings();
+```
+
+#### ToggleMarking
+
+```csharp
+public static void ToggleMarking(this PKM pk, int index)
+```
+
+Toggles the marking at a given index.
+
+**Parameters:**
+- `index` - Marking index to toggle (0-5 for HP/Atk/Def/SpA/SpD/Spe)
+
+### Properties
+
+#### MarkingMethod
+
+```csharp
+public static Func<PKM, Func<int, int, int>> MarkingMethod { get; set; }
+```
+
+Default marking method when applying markings. Defaults to `FlagHighLow`.
+
+---
+
+## HiddenPowerApplicator
+
+Extension methods for applying Hidden Power types to PKM entities.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetHiddenPower
+
+```csharp
+public void SetHiddenPower(int hiddenPowerType)
+public void SetHiddenPower(MoveType hiddenPowerType)
+```
+
+Sets the IVs to match a provided Hidden Power type.
+
+**Example:**
+```csharp
+pk.SetHiddenPower(MoveType.Fire);
+```
+
+---
+
+## MemoryApplicator
+
+Extension methods for modifying memory parameters of PKM entities.
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### ClearMemories
+
+```csharp
+public void ClearMemories()
+```
+
+Sets all memory-related data to the default value (zero).
+
+**Example:**
+```csharp
+pk.ClearMemories();
+```
+
+#### SetHatchMemory6
+
+```csharp
+public void SetHatchMemory6()
+```
+
+Sets the memory details to a hatched egg's memories specific to Generation 6.
+
+#### SetRandomMemory6
+
+```csharp
+public static void SetRandomMemory6(this PK6 pk)
+```
+
+Sets a random memory specific to Generation 6.
+
+---
+
+## CatchRateApplicator
+
+Applies catch rate values for Generation 1 PKM entities.
+
+**Namespace:** `PKHeX.Core`
+
+### Methods
+
+#### GetSuggestedCatchRate
+
+```csharp
+public static int GetSuggestedCatchRate(PK1 pk, SaveFile sav)
+public static byte GetSuggestedCatchRate(PK1 pk, SaveFile sav, LegalityAnalysis la)
+```
+
+Gets the suggested catch rate for the entity based on legality and encounter data.
+
+**Returns:** Suggested catch rate value
+
+---
+
+## TechnicalRecordApplicator
+
+Extension methods for modifying Technical Record flags (Gen 8+).
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetRecordFlagsAll
+
+```csharp
+public void SetRecordFlagsAll(bool value, int max)
+public void SetRecordFlagsAll()
+```
+
+Sets the Technical Record flags for the record.
+
+#### ClearRecordFlags
+
+```csharp
+public void ClearRecordFlags()
+```
+
+Clears all Technical Record flags.
+
+#### SetRecordFlags
+
+```csharp
+public void SetRecordFlags(ReadOnlySpan<ushort> moves)
+public void SetRecordFlags(PKM pk, TechnicalRecordApplicatorOption option)
+public void SetRecordFlags(PKM pk, TechnicalRecordApplicatorOption option, LegalityAnalysis la)
+```
+
+Sets the Technical Record flags based on current moves or legality.
+
+**Example:**
+```csharp
+if (pk is PK8 pk8)
+    pk8.SetRecordFlags(TechnicalRecordApplicatorOption.LegalAll);
+```
+
+### Enumerations
+
+#### TechnicalRecordApplicatorOption
+
+```csharp
+public enum TechnicalRecordApplicatorOption
+{
+    None,          // Clear all flags
+    ForceAll,      // Apply all flags regardless of legality
+    LegalCurrent,  // Apply legal flags based on current moves
+    LegalAll       // Apply legal flags based on all learnable moves
+}
+```
+
+---
+
+## PlusRecordApplicator
+
+Extension methods for modifying Plus Record flags (Legends: Z-A).
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### SetPlusFlagsAll
+
+```csharp
+public void SetPlusFlagsAll(int count, bool value)
+```
+
+Sets all Plus Record flags to the given value.
+
+#### ClearPlusFlags
+
+```csharp
+public void ClearPlusFlags(int count)
+```
+
+Clears the Plus Record flags.
+
+#### SetPlusFlags
+
+```csharp
+public void SetPlusFlags(IPermitPlus permit, LegalityAnalysis la, bool seedOfMastery, bool tm)
+public void SetPlusFlags(PKM pk, IPermitPlus permit, PlusRecordApplicatorOption option)
+```
+
+Sets the Plus Record flags based on legality and learning options.
+
+**Parameters:**
+- `seedOfMastery` - Use a Seed of Mastery to bypass level requirements
+- `tm` - Apply TM flags as Plus too
+
+### Enumerations
+
+#### PlusRecordApplicatorOption
+
+```csharp
+public enum PlusRecordApplicatorOption
+{
+    None,            // Clear all flags
+    ForceAll,        // Apply all flags
+    LegalCurrent,    // Legal flags without TMs
+    LegalCurrentTM,  // Legal flags with TMs
+    LegalSeedTM      // Legal flags with Seed of Mastery and TMs
+}
+```
+
+---
+
+## MoveShopRecordApplicator
+
+Extension methods for modifying Move Shop Record flags (Legends: Arceus).
+
+**Namespace:** `PKHeX.Core`
+
+### Extension Methods
+
+#### ClearMoveShopFlags
+
+```csharp
+public void ClearMoveShopFlags()
+```
+
+Clears all "purchased" and "mastered" move shop flags.
+
+#### SetMoveShopFlags
+
+```csharp
+public void SetMoveShopFlags(PKM pk)
+public void SetMoveShopFlags(ReadOnlySpan<ushort> moves, PKM pk)
+```
+
+Sets the required move shop flags for the requested entity.
+
+#### SetMoveShopFlagsAll
+
+```csharp
+public void SetMoveShopFlagsAll(PKM pk)
+```
+
+Sets all possible move shop flags for the requested entity.
+
+#### SetPurchasedFlagsAll
+
+```csharp
+public void SetPurchasedFlagsAll(PKM pk)
+```
+
+Sets the "purchased" move shop flag for all possible moves.
+
+**Example:**
+```csharp
+if (pk is PA8 pa8)
+    pa8.SetMoveShopFlagsAll(pa8);
+```

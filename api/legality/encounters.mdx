@@ -1,0 +1,303 @@
+---
+title: Encounters
+description: Encounter templates and matching for PKHeX legality validation
+---
+
+The PKHeX encounter system provides comprehensive templates for matching Pokémon against known encounter types across all generations.
+
+## Core Interfaces
+
+### IEncounterable
+
+Base interface for all encounter types.
+
+```csharp
+public interface IEncounterable : IEncounterInfo
+{
+    string Name { get; }        // Short name (e.g., "Static Encounter")
+    string LongName { get; }    // Detailed type-specific information
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Encounters/Templates/Interfaces/IEncounterable.cs`
+
+### IEncounterTemplate
+
+Represents all details that an entity may be encountered with.
+
+```csharp
+public interface IEncounterTemplate : ISpeciesForm, IVersion, IGeneration, 
+    IShiny, ILevelRange, ILocation, IFixedAbilityNumber, IFixedBall, 
+    IShinyPotential, IContext
+{
+    bool IsEgg { get; }  // Indicates if the encounter originated as an egg
+}
+```
+
+**Source:** `PKHeX.Core/Legality/Encounters/Templates/Interfaces/IEncounterTemplate.cs`
+
+### IEncounterMatch
+
+Defines matching logic for encounter validation.
+
+```csharp
+public interface IEncounterMatch
+{
+    bool IsMatchExact(PKM pk, EvoCriteria evo);
+    EncounterMatchRating GetMatchRating(PKM pk);
+}
+```
+
+## Encounter Types
+
+### EncounterStatic
+
+Represents static encounters (gifts, legendaries, scripted events).
+
+**Generation 8 Example:**
+
+```csharp
+public sealed record EncounterStatic8(GameVersion Version = GameVersion.SWSH)
+    : IEncounterable, IEncounterMatch, IEncounterConvertible<PK8>, 
+      IMoveset, IRelearn, IFlawlessIVCount, IFixedIVSet, IFixedGender, 
+      IFixedNature, IDynamaxLevelReadOnly, IGigantamaxReadOnly
+{
+    public required ushort Location { get; init; }
+    public required ushort Species { get; init; }
+    public byte Form { get; init; }
+    public required byte Level { get; init; }
+    public Moveset Moves { get; init; }
+    public Moveset Relearn { get; init; }
+    public IndividualValueSet IVs { get; init; }
+    public AreaWeather8 Weather { get; init; }
+    public byte DynamaxLevel { get; init; }
+    public Nature Nature { get; init; }
+    public Shiny Shiny { get; init; }
+    public AbilityPermission Ability { get; init; }
+    public byte Gender { get; init; }
+    public Ball FixedBall { get; init; }
+    public byte FlawlessIVCount { get; init; }
+    public bool CanGigantamax { get; init; }
+}
+```
+
+**Key Features:**
+- Fixed encounter location and level
+- Optional fixed IVs, nature, gender, ability
+- Weather conditions for Gen 8 Wild Area
+- Dynamax/Gigantamax support
+- Overworld correlation validation
+
+**Source:** `PKHeX.Core/Legality/Encounters/Templates/Gen8/EncounterStatic8.cs`
+
+### EncounterSlot
+
+Represents wild encounters in specific areas.
+
+**Generation 8 Example:**
+
+```csharp
+public sealed record EncounterSlot8(
+    EncounterArea8 Parent, 
+    ushort Species, 
+    byte Form, 
+    byte LevelMin, 
+    byte LevelMax, 
+    AreaWeather8 Weather, 
+    SlotType8 Type
+) : IEncounterable, IEncounterMatch, IEncounterConvertible<PK8>
+{
+    public GameVersion Version => Parent.Version;
+    public ushort Location => Parent.Location;
+    public bool CanEncounterViaFishing => Type.CanEncounterViaFishing(Weather);
+    public bool CanEncounterViaCurry { get; }
+}
+```
+
+**Key Features:**
+- Level range (min/max)
+- Parent area reference
+- Weather-dependent spawns
+- Special encounter methods (fishing, curry)
+- Symbol vs. hidden encounters
+
+**Source:** `PKHeX.Core/Legality/Encounters/Templates/Gen8/EncounterSlot8.cs`
+
+### EncounterTrade
+
+Represents in-game NPC trades.
+
+**Generation 8 Example:**
+
+```csharp
+public sealed record EncounterTrade8 : IEncounterable, IEncounterMatch, 
+    IEncounterConvertible<PK8>, IFixedTrainer, IFixedNickname, 
+    IDynamaxLevelReadOnly, IRelearn, IMemoryOTReadOnly, IFlawlessIVCount
+{
+    public required uint ID32 { get; init; }
+    public required AbilityPermission Ability { get; init; }
+    public required byte Gender { get; init; }
+    public required byte OTGender { get; init; }
+    public required IndividualValueSet IVs { get; init; }
+    public Nature Nature { get; init; }
+    public Shiny Shiny { get; }
+    public bool IsFixedNickname { get; }
+    
+    // Memory context
+    public byte OriginalTrainerMemory { get; }
+    public ushort OriginalTrainerMemoryVariable { get; }
+    public byte OriginalTrainerMemoryFeeling { get; }
+    public byte OriginalTrainerMemoryIntensity { get; }
+}
+```
+
+**Key Features:**
+- Fixed trainer ID and OT name
+- Optional fixed nickname
+- Fixed or random nature/gender/ability
+- Original trainer memories (Gen 6+)
+- Cannot be shiny (typically)
+
+**Source:** `PKHeX.Core/Legality/Encounters/Templates/Gen8/EncounterTrade8.cs`
+
+### Other Encounter Types
+
+| Type | Description | Key Classes |
+|------|-------------|-------------|
+| **EncounterEgg** | Bred eggs | `EncounterEgg8`, `EncounterEgg9` |
+| **EncounterSlot7GO** | Pokémon GO transfers | `EncounterSlot7GO`, `EncounterSlot8GO` |
+| **EncounterShadow** | Shadow Pokémon (Colosseum/XD) | `EncounterShadow3Colo`, `EncounterShadow3XD` |
+| **EncounterTera** | Tera Raid battles (Gen 9) | `EncounterTera9`, `EncounterMight9` |
+| **EncounterStatic8a** | Legends: Arceus encounters | `EncounterStatic8a`, `EncounterSlot8a` |
+| **EncounterGift** | Gift Pokémon | `EncounterGift1`, `EncounterGift3` |
+
+## Encounter Matching
+
+### EncounterMatchRating
+
+Indicates match quality between PKM and encounter template.
+
+```csharp
+public enum EncounterMatchRating
+{
+    Match,              // Perfect match
+    Deferred,           // Possible match, check others
+    DeferredErrors,     // Has errors, but might match
+    PartialMatch,       // Partial match (e.g., ability mismatch)
+}
+```
+
+### Match Validation
+
+Encounters implement `IsMatchExact` to validate:
+- Met location and level
+- Form compatibility
+- Gender (if fixed)
+- IVs (if fixed/flawless)
+- Ability number
+- Ball type
+- Overworld correlation (Gen 8+)
+
+**Example from EncounterStatic8:**
+
+```csharp
+public bool IsMatchExact(PKM pk, EvoCriteria evo)
+{
+    if (!IsMatchLevel(pk)) return false;
+    if (!IsMatchLocation(pk)) return false;
+    if (Gender != FixedGenderUtil.GenderRandom && pk.Gender != Gender) 
+        return false;
+    if (Form != evo.Form && !FormInfo.IsFormChangeable(Species, Form, pk.Form, Context, pk.Context)) 
+        return false;
+    if (IVs.IsSpecified && !Legal.GetIsFixedIVSequenceValidSkipRand(IVs, pk)) 
+        return false;
+    if (FlawlessIVCount != 0 && pk.FlawlessIVCount < FlawlessIVCount) 
+        return false;
+    return true;
+}
+```
+
+## Encounter Generation
+
+### IEncounterConvertible
+
+Encounters can generate valid PKM objects.
+
+```csharp
+public interface IEncounterConvertible<out T> where T : PKM
+{
+    T ConvertToPKM(ITrainerInfo tr);
+    T ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria);
+}
+```
+
+**Example Usage:**
+
+```csharp
+var encounter = new EncounterStatic8 
+{
+    Species = (int)Species.Zacian,
+    Level = 70,
+    Location = 66,
+    FlawlessIVCount = 3,
+    Shiny = Shiny.Never,
+    Version = GameVersion.SW
+};
+
+var pk8 = encounter.ConvertToPKM(trainer, EncounterCriteria.Unrestricted);
+```
+
+## Encounter Data Sources
+
+Encounter data is organized by generation:
+
+```
+Legality/Encounters/
+├── Data/              # Static encounter databases
+│   ├── Gen1/
+│   ├── Gen2/
+│   ├── Gen3/
+│   ├── Gen8/
+│   └── Gen9/
+├── Templates/         # Encounter class definitions
+│   ├── Gen1/
+│   ├── Gen8/
+│   ├── Gen9/
+│   └── Interfaces/
+└── Verifiers/        # Encounter-specific validation
+```
+
+## Key Enums
+
+### Shiny
+
+```csharp
+public enum Shiny : byte
+{
+    Never,      // Cannot be shiny
+    Random,     // Can be shiny or not
+    Always,     // Always shiny
+    FixedValue, // Shiny with fixed PID
+    AlwaysStar, // Always star shiny (Gen 8+)
+    AlwaysSquare // Always square shiny (Gen 8+)
+}
+```
+
+### AbilityPermission
+
+```csharp
+public enum AbilityPermission : byte
+{
+    Any12,      // Ability 1 or 2
+    Any12H,     // Ability 1, 2, or H
+    OnlyFirst,  // Only ability 1
+    OnlySecond, // Only ability 2
+    OnlyHidden  // Only hidden ability
+}
+```
+
+## Related Documentation
+
+- [Verifiers](/api/legality/verifiers) - Validation logic for encounters
+- [Evolutions](/api/legality/evolutions) - Evolution chain validation
+- [Moves](/api/legality/moves) - Move legality checking

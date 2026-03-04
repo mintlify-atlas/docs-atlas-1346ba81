@@ -1,0 +1,543 @@
+---
+title: Generation 8 Save Files
+description: SAV8SWSH, SAV8BS, and SAV8LA save file implementations
+---
+
+# Generation 8 Save Files
+
+Save file implementations for Nintendo Switch Pokemon games.
+
+## SAV8SWSH
+
+Save file for Pokemon Sword and Shield.
+
+### Class Definition
+
+```csharp
+public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, 
+    ISaveFileRevision, ISCBlockArray, IBoxDetailName, IBoxDetailWallpaper
+```
+
+**Source:** `PKHeX.Core/Saves/SAV8SWSH.cs`
+
+### Save Revisions
+
+Sword and Shield has 3 save revisions based on DLC:
+
+```csharp
+public int SaveRevision { get; } // 0, 1, or 2
+public string SaveRevisionString { get; } // "-Base", "-IoA", "-CT"
+
+// Revision 0: Base game (Vanilla)
+// Revision 1: DLC 1 - Isle of Armor
+// Revision 2: DLC 2 - Crown Tundra
+```
+
+### Storage Specifications
+
+| Property | Base | IoA | CT |
+|----------|------|-----|----|
+| **Box Count** | 32 | 32 | 32 |
+| **Max Species** | 400 | 500 | 664 |
+| **Max Move** | 796 | 826 | 850 |
+| **Max Item** | 1278 | 1489 | 1589 |
+| **Max Ability** | 258 | 260 | 267 |
+
+### SCBlock System
+
+Gen 8 introduced the SCBlock (Save Block) architecture:
+
+```csharp
+public IReadOnlyList<SCBlock> AllBlocks { get; }
+public SCBlockAccessor Accessor { get; }
+public T GetValue<T>(uint key) where T : struct
+public void SetValue<T>(uint key, T value) where T : struct
+```
+
+Blocks are accessed by 32-bit hash keys:
+
+```csharp
+public Box8 BoxInfo => Blocks.BoxInfo;
+public Party8 PartyInfo => Blocks.PartyInfo;
+public MyItem8 Items => Blocks.Items;
+// ... etc
+```
+
+### Block Accessors
+
+```csharp
+public SaveBlockAccessor8SWSH Blocks { get; }
+public MyStatus8 MyStatus { get; }
+public Coordinates8 Coordinates { get; }
+public Misc8 Misc { get; }
+public Zukan8 Zukan { get; }
+public BoxLayout8 BoxLayout { get; }
+public PlayTime7b Played { get; }
+public Fused8 Fused { get; }
+public Daycare8 Daycare { get; }
+public Record8 Records { get; }
+public TrainerCard8 TrainerCard { get; }
+public FashionUnlock8 Fashion { get; }
+public RaidSpawnList8 RaidGalar { get; }
+public RaidSpawnList8 RaidArmor { get; }
+public RaidSpawnList8 RaidCrown { get; }
+public TitleScreen8 TitleScreen { get; }
+public TeamIndexes8 TeamIndexes { get; }
+```
+
+### Key Properties
+
+```csharp
+public override uint ID32 { get; set; }
+public override ushort TID16 { get; set; }
+public override ushort SID16 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+public override uint Money { get; set; }
+public int Badges { get; set; }
+```
+
+### Box Management
+
+```csharp
+public override int BoxCount { get; } // 32
+public override int CurrentBox { get; set; }
+public override int BoxesUnlocked { get; set; }
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+
+public override byte[] BoxFlags { get; set; }
+// Secret box unlock status
+```
+
+### Battle Teams
+
+```csharp
+public TeamIndexes8 TeamIndexes { get; }
+public override StorageSlotSource GetBoxSlotFlags(int index)
+```
+
+### Max Raid Battles
+
+```csharp
+public RaidSpawnList8 RaidGalar { get; }  // Base game dens
+public RaidSpawnList8 RaidArmor { get; }  // Isle of Armor dens
+public RaidSpawnList8 RaidCrown { get; }  // Crown Tundra dens
+```
+
+### Diglett Hunt (IoA)
+
+```csharp
+public void UnlockAllDiglett()
+{
+    // Unlocks all 150 Alolan Diglett in Isle of Armor
+    // Sets flags and counters for all zones
+}
+```
+
+### Form Arguments
+
+```csharp
+protected override void SetPKM(PKM pk, bool isParty = false)
+{
+    PK8 pk8 = (PK8)pk;
+    pk8.UpdateHandler(this);
+    
+    if (FormArgumentUtil.IsFormArgumentTypeDatePair(pk8.Species, pk8.Form))
+    {
+        pk8.FormArgumentElapsed = pk8.FormArgumentMaximum = 0;
+        pk8.FormArgumentRemain = (byte)GetFormArgument(pk8);
+    }
+    pk8.RefreshChecksum();
+}
+
+private static uint GetFormArgument(PKM pk)
+{
+    if (pk.Form == 0) return 0;
+    return pk.Species switch
+    {
+        (int)Species.Furfrou => 5u,
+        (int)Species.Hoopa => 3u,
+        _ => 0u,
+    };
+}
+```
+
+### Record Tracking
+
+```csharp
+public int RecordCount { get; } // ~100 records
+public int GetRecord(int recordID)
+public void SetRecord(int recordID, int value)
+public int GetRecordMax(int recordID)
+public int GetRecordOffset(int recordID)
+```
+
+### No Traditional Checksums
+
+```csharp
+public override bool ChecksumsValid => true;
+public override string ChecksumInfo => string.Empty;
+protected override void SetChecksums() { } // No checksums!
+```
+
+---
+
+## SAV8BS
+
+Save file for Pokemon Brilliant Diamond and Shining Pearl.
+
+### Class Definition
+
+```csharp
+public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, 
+    IEventWorkArray<int>, IBoxDetailName, IBoxDetailWallpaper, IDaycareStorage, 
+    IDaycareEggState, IDaycareRandomState<ulong>
+```
+
+**Source:** `PKHeX.Core/Saves/SAV8BS.cs`
+
+### Save Revisions
+
+```csharp
+public int SaveRevision { get; } // Game version
+public string SaveRevisionString { get; } // e.g., "V1_3"
+
+// v1.0: Launch version
+// v1.1: First update (RecordAdd, MysteryRecords blocks)
+// v1.2: Second update (additional Hall of Fame tracking)
+// v1.3: Final update
+```
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 40 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Daycare Slots** | 2 |
+
+### Block Structure
+
+BDSP uses a fixed-offset block system:
+
+```csharp
+public FlagWork8b FlagWork { get; }           // 0x00004
+public MyItem8b Items { get; }                // 0x0563C
+public UndergroundItemList8b Underground { get; } // 0x111BC
+public SaveItemShortcut8b SelectBoundItems { get; } // 0x14090
+public Party8b PartyInfo { get; }             // 0x14098
+public BoxLayout8b BoxLayout { get; }         // 0x148AA
+// Boxes start at 0x14EF4
+
+// Player Data Block (0x79B74+)
+public ConfigSave8b Config { get; }
+public MyStatus8b MyStatus { get; }
+public PlayTime8b Played { get; }
+public Contest8b Contest { get; }
+public Zukan8b Zukan { get; }
+public BattleTrainerStatus8b BattleTrainer { get; }
+public MenuSelect8b MenuSelection { get; }
+public FieldObjectSave8b FieldObjects { get; }
+public Record8b Records { get; }
+public EncounterSave8b Encounter { get; }
+public PlayerData8b Player { get; }
+public SealBallDecoData8b SealDeco { get; }
+public SealList8b SealList { get; }
+public RandomGroup8b Random { get; }
+public FieldGimmickSave8b FieldGimmick { get; }
+public BerryTreeGrowSave8b BerryTrees { get; }
+public PoffinSaveData8b Poffins { get; }
+public BattleTowerWork8b BattleTower { get; }
+public SystemData8b System { get; }
+public Poketch8b Poketch { get; }
+public Daycare8b Daycare { get; }
+public UgSaveData8b UgSaveData { get; } // Underground
+public UnionSaveData8b UnionSave { get; }
+public ContestPhotoLanguage8b ContestPhotoLanguage { get; }
+public ZukanSpinda8b ZukanExtra { get; }
+public UgCountRecord8b UgCount { get; }
+```
+
+### Version-Specific Blocks
+
+```csharp
+public bool HasFirstSaveFileExpansion { get; } // v1.1+
+public bool HasSecondSaveFileExpansion { get; } // v1.2+
+
+// v1.1 additions
+public RecordAddData8b RecordAdd { get; }
+public MysteryBlock8b MysteryRecords { get; }
+```
+
+### Key Properties
+
+```csharp
+public override uint ID32 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+public override uint Money { get; set; }
+public string Rival { get; set; }
+```
+
+### Position Data
+
+```csharp
+public short ZoneID { get; set; } // Current map
+public float TimeScale { get; set; } // Default: 1440.0f
+```
+
+### Daycare System
+
+```csharp
+public int DaycareSlotCount { get; } // 2
+public bool IsDaycareOccupied(int slot)
+public bool IsEggAvailable { get; set; }
+public Memory<byte> GetDaycareSlot(int index)
+public ulong Seed { get; set; } // LCRNG seed
+```
+
+### Event Work
+
+```csharp
+public int EventWorkCount { get; } // FlagWork8b.COUNT_WORK
+public int GetWork(int index)
+public void SetWork(int index, int value = 0)
+```
+
+### Battle Teams
+
+```csharp
+public override StorageSlotSource GetBoxSlotFlags(int index)
+{
+    int team = TeamSlots.IndexOf(index);
+    if (team < 0) return StorageSlotSource.None;
+    
+    team /= 6;
+    var result = (StorageSlotSource)((int)StorageSlotSource.BattleTeam1 << team);
+    if (BoxLayout.GetIsTeamLocked(team))
+        result |= StorageSlotSource.Locked;
+    return result;
+}
+```
+
+### Checksums
+
+BDSP uses MD5 hashing:
+
+```csharp
+private const int HashLength = 16; // MD5.HashSizeInBytes
+private const int HashOffset = SaveUtil.SIZE_G8BDSP_0 - HashLength;
+
+protected override void SetChecksums()
+{
+    var current = CurrentHash;
+    current.Clear();
+    RuntimeCryptographyProvider.Md5.HashData(Data, current);
+}
+
+public override bool ChecksumsValid
+{
+    get
+    {
+        var current = CurrentHash;
+        Span<byte> exist = stackalloc byte[HashLength];
+        current.CopyTo(exist);
+        SetChecksums();
+        var result = current.SequenceEqual(exist);
+        if (!result)
+            exist.CopyTo(current); // restore
+        return result;
+    }
+}
+```
+
+---
+
+## SAV8LA
+
+Save file for Pokemon Legends: Arceus.
+
+### Class Definition
+
+```csharp
+public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, 
+    ISaveFileRevision, IBoxDetailName, IBoxDetailWallpaper
+```
+
+**Source:** `PKHeX.Core/Saves/SAV8LA.cs`
+
+### Save Revisions
+
+```csharp
+public int SaveRevision { get; } // 0 or 1
+public string SaveRevisionString { get; } // "-Base" or "-DB"
+
+// Revision 0: Base game (Vanilla)
+// Revision 1: Daybreak update
+```
+
+### Storage Specifications
+
+| Property | Value |
+|----------|-------|
+| **Box Count** | 32 |
+| **Box Slot Count** | 30 |
+| **Party Size** | 6 |
+| **Total Capacity** | 960 Pokemon |
+
+### SCBlock System
+
+Similar to SWSH, uses SCBlock architecture:
+
+```csharp
+public IReadOnlyList<SCBlock> AllBlocks { get; }
+public SCBlockAccessor Accessor { get; }
+public T GetValue<T>(uint key) where T : struct
+public void SetValue<T>(uint key, T value) where T : struct
+```
+
+### Block Accessors
+
+```csharp
+public SaveBlockAccessor8LA Blocks { get; }
+public Box8 BoxInfo { get; }
+public Party8a PartyInfo { get; }
+public MyStatus8a MyStatus { get; }
+public PokedexSave8a PokedexSave { get; }
+public BoxLayout8a BoxLayout { get; }
+public MyItem8a Items { get; }
+public Epoch1970Value AdventureStart { get; }
+public Coordinates8a Coordinates { get; }
+public Epoch1900DateTimeValue LastSaved { get; }
+public PlayTime8b Played { get; }
+public AreaSpawnerSet8a AreaSpawners { get; }
+```
+
+### Key Properties
+
+```csharp
+public override uint ID32 { get; set; }
+public override GameVersion Version { get; set; }
+public override byte Gender { get; set; }
+public override int Language { get; set; }
+public override string OT { get; set; }
+public override uint Money { get; set; } // Max: 9,999,999
+public override uint SecondsToStart { get; set; }
+```
+
+### Pokedex System
+
+Legends Arceus uses a research-based Pokedex:
+
+```csharp
+public PokedexSave8a PokedexSave { get; }
+
+protected override void SetDex(PKM pk)
+{
+    // Updates research progress, not just seen/caught
+    PokedexSave.OnPokeGet_TradeWithoutEvolution(pk);
+}
+
+public override bool GetCaught(ushort species)
+{
+    if (species > Personal.MaxSpeciesID)
+        return false;
+    
+    var formCount = Personal[species].FormCount;
+    for (byte form = 0; form < formCount; form++)
+    {
+        if (PokedexSave.HasAnyPokeObtainFlags(species, form))
+            return true;
+    }
+    return false;
+}
+
+public override bool GetSeen(ushort species) 
+    => PokedexSave.HasPokeEverBeenUpdated(species);
+```
+
+### Area Spawners
+
+Manages wild Pokemon spawns:
+
+```csharp
+public AreaSpawnerSet8a AreaSpawners { get; }
+// Controls which Pokemon spawn in each area
+```
+
+### Box Management
+
+```csharp
+public override int CurrentBox { get; set; }
+public override int BoxesUnlocked { get; set; }
+public string GetBoxName(int box)
+public void SetBoxName(int box, ReadOnlySpan<char> value)
+public int GetBoxWallpaper(int box)
+public void SetBoxWallpaper(int box, int value)
+
+public override byte[] BoxFlags { get; set; } // 3 secret boxes
+```
+
+### No Traditional Checksums
+
+```csharp
+public override bool ChecksumsValid => true;
+public override string ChecksumInfo => string.Empty;
+protected override void SetChecksums() { }
+```
+
+## Technical Notes
+
+### SwishCrypto
+
+Gen 8 Switch games use SwishCrypto for encryption:
+
+```csharp
+// SWSH and LA
+public SAV8SWSH(Memory<byte> data) : this(SwishCrypto.Decrypt(data.Span)) { }
+protected override Memory<byte> GetFinalData() => SwishCrypto.Encrypt(AllBlocks);
+
+// BDSP uses raw data (no encryption at save level)
+```
+
+### SCBlock Architecture
+
+SCBlocks use 32-bit FNV-1a hashes as keys:
+
+```csharp
+var flag = "FSYS_UI_WAZA_MACHINE_RELEASE_001";
+var hash = (uint)FnvHash.HashFnv1a_64(flag);
+var block = Accessor.GetBlock(hash);
+```
+
+### PKM Formats
+
+- **SWSH**: PK8 (stored and party both 0x148 bytes)
+- **BDSP**: PB8 (stored and party both 0x158 bytes)
+- **PLA**: PA8 (stored 0x168 bytes, party 0x168 bytes)
+
+### String Encoding
+
+All Gen 8 games use StringConverter8:
+
+```csharp
+public override string GetString(ReadOnlySpan<byte> data)
+    => StringConverter8.GetString(data);
+```
+
+### Party Format in Boxes
+
+Gen 8 stores Pokemon in party format even in boxes:
+
+```csharp
+public override int SIZE_BOXSLOT => PokeCrypto.SIZE_8PARTY;
+public override byte[] GetDataForBox(PKM pk) => pk.EncryptedPartyData;
+```

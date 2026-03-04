@@ -1,0 +1,466 @@
+---
+title: Bulk Operations
+description: Bulk editing operations and batch processing
+---
+
+# Bulk Operations
+
+The bulk editing system provides powerful string-based instruction parsing for batch modifying PKM entities. This system is used extensively in PKHeX for batch editing multiple Pokémon at once.
+
+## EntityBatchEditor
+
+The main class for bulk editing PKM entities using string instructions.
+
+**Namespace:** `PKHeX.Core`
+
+### Overview
+
+EntityBatchEditor processes string-based instructions to modify PKM data in bulk. It supports:
+
+- Property modifications with various operators
+- Filtering based on property values
+- Special values like `$rand`, `$shiny`, and `$suggest`
+- Complex modifications for ribbons, EVs, and more
+
+### Properties
+
+#### Instance
+
+```csharp
+public static EntityBatchEditor Instance { get; }
+```
+
+Singleton instance of the batch editor.
+
+### Methods
+
+#### ScreenStrings
+
+```csharp
+public static void ScreenStrings(IEnumerable<StringInstruction> il)
+```
+
+Initializes the instruction list with context-sensitive values. Converts string values to their corresponding indexes for properties like Species, Move, Item, etc.
+
+#### IsFilterMatchMeta
+
+```csharp
+public static bool IsFilterMatchMeta(IEnumerable<StringInstruction> filters, SlotCache pk)
+```
+
+Checks if the object is filtered by the provided filters.
+
+**Returns:** True if the PKM matches all filters
+
+### Custom Properties
+
+The batch editor supports several custom properties beyond standard PKM properties:
+
+#### General Properties
+
+- `Legal` - Filters based on legality status
+- `$TypeName` - Filters by PKM type name (e.g., "PK8", "PA8")
+
+#### PersonalInfo Properties
+
+- `PersonalType1` - Primary type from PersonalInfo
+- `PersonalType2` - Secondary type from PersonalInfo
+- `HasType` - Checks if either type matches
+
+#### SlotCache Properties
+
+- `IdentifierContains` - Filters by identifier string
+- `Slot` - Slot number (1-indexed)
+- `Box` - Box number (1-indexed)
+
+#### Bulk Properties
+
+- `Ribbons` - Bulk ribbon operations
+- `EVs` - Bulk EV operations
+- `ContestStats` - Bulk contest stat operations
+- `MoveMastery` - Move mastery flags (Legends: Arceus)
+- `PlusMoves` - Plus move flags (Legends: Z-A)
+
+### Special Values
+
+#### $rand
+
+Applies a random value within valid range.
+
+```
+.Species=$rand      # Random species
+.IVs=$rand          # Random IVs based on encounter
+.IV_HP=$rand        # Random HP IV
+```
+
+#### $shiny
+
+Makes the Pokémon shiny.
+
+```
+.PID=$shiny         # Random shiny
+.PID=$shiny0        # Square shiny
+.PID=$shiny1        # Star shiny
+```
+
+#### $suggest
+
+Applies suggested legal values.
+
+```
+.MetLocation=$suggest
+.Moves=$suggest
+.RelearnMoves=$suggest
+.Ball=$suggest
+```
+
+#### $[]
+
+Defines byte array values.
+
+```
+.NicknameTrash=$[]FF,02,03
+```
+
+---
+
+## StringInstruction
+
+Represents a batch editing instruction.
+
+**Namespace:** `PKHeX.Core`
+
+### Constructor
+
+```csharp
+public StringInstruction(string PropertyName, string PropertyValue, 
+    InstructionComparer Comparer, InstructionOperation Operation = InstructionOperation.Set)
+```
+
+### Properties
+
+- `PropertyName` - Property to modify
+- `PropertyValue` - Value to set or compare against
+- `Comparer` - Comparison type for filters
+- `Operation` - Operation type for modifications
+- `Random` - Whether to apply a random value
+
+### Static Methods
+
+#### GetFilters
+
+```csharp
+public static List<StringInstruction> GetFilters(ReadOnlySpan<char> text)
+public static List<StringInstruction> GetFilters(IEnumerable<string> lines)
+```
+
+Gets a list of filter instructions from input text.
+
+**Example:**
+```csharp
+var filters = StringInstruction.GetFilters(@"
+=Species=25
+=IsShiny=true
+");
+```
+
+#### GetInstructions
+
+```csharp
+public static List<StringInstruction> GetInstructions(ReadOnlySpan<char> text)
+public static List<StringInstruction> GetInstructions(IEnumerable<string> lines)
+```
+
+Gets a list of modification instructions from input text.
+
+**Example:**
+```csharp
+var instructions = StringInstruction.GetInstructions(@"
+.Species=25
+.Level=100
+.IsShiny=true
+");
+```
+
+### Instruction Syntax
+
+#### Filters (Comparisons)
+
+Filters start with a comparison operator:
+
+```
+=Species=25         # Equal to
+!Species=25         # Not equal to
+>Level=50           # Greater than
+<Level=50           # Less than
+≥Level=50           # Greater than or equal
+≤Level=50           # Less than or equal
+```
+
+#### Modifications (Operations)
+
+Modifications start with an operation operator:
+
+```
+.Species=25         # Set
++Level=10           # Add
+-Level=10           # Subtract
+*EXP=2              # Multiply
+/EXP=2              # Divide
+%EXP=1000           # Modulo
+&Markings=15        # Bitwise AND
+|Markings=1         # Bitwise OR
+^Markings=1         # Bitwise XOR
+»Value=2            # Bitwise shift right
+«Value=2            # Bitwise shift left
+```
+
+### Random Ranges
+
+Specify random ranges with commas:
+
+```
+.Level=$1,100       # Random level between 1 and 100
+.IV_HP=$0,31        # Random HP IV between 0 and 31
+```
+
+---
+
+## BatchInfo
+
+Wrapper containing PKM entity and legality analysis for batch editing.
+
+**Namespace:** `PKHeX.Core`
+
+### Constructor
+
+```csharp
+public BatchInfo(PKM Entity)
+```
+
+### Properties
+
+- `Entity` - PKM entity to be modified
+- `Legality` - Legality analysis (eagerly evaluated)
+- `Legal` - Boolean indicating if the entity is legal
+
+---
+
+## ModifyResult
+
+Batch editor modification result for an individual operation.
+
+**Namespace:** `PKHeX.Core`
+
+### Enumeration
+
+```csharp
+public enum ModifyResult
+{
+    Filtered,    // No modifications (excluded by filter)
+    Skipped,     // Not a suitable candidate
+    Modified,    // Successfully applied modifications
+    Error = 0x80 // Error occurred
+}
+```
+
+---
+
+## InstructionComparer
+
+Comparison types for batch editing filters.
+
+**Namespace:** `PKHeX.Core`
+
+```csharp
+public enum InstructionComparer
+{
+    None,
+    IsEqual,
+    IsNotEqual,
+    IsGreaterThan,
+    IsLessThan,
+    IsGreaterThanOrEqual,
+    IsLessThanOrEqual
+}
+```
+
+---
+
+## InstructionOperation
+
+Operation types for batch editing modifications.
+
+**Namespace:** `PKHeX.Core`
+
+```csharp
+public enum InstructionOperation
+{
+    Set,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    BitwiseShiftRight,
+    BitwiseShiftLeft
+}
+```
+
+---
+
+## Usage Examples
+
+### Basic Filtering and Modification
+
+```csharp
+// Create filters
+var filterText = @"
+=Species=25
+>Level=50
+=IsShiny=false
+";
+var filters = StringInstruction.GetFilters(filterText);
+
+// Create modifications
+var modifyText = @"
+.IsShiny=true
+.Level=100
+.Ball=$suggest
+";
+var instructions = StringInstruction.GetInstructions(modifyText);
+EntityBatchEditor.ScreenStrings(instructions);
+
+// Process entities
+foreach (var pk in entities)
+{
+    var info = new BatchInfo(pk);
+    
+    // Check filters
+    bool matches = filters.All(f => /* evaluate filter */);
+    if (!matches)
+        continue;
+    
+    // Apply modifications
+    foreach (var cmd in instructions)
+    {
+        // Apply instruction to pk
+    }
+}
+```
+
+### Using Special Values
+
+```csharp
+var instructions = StringInstruction.GetInstructions(@"
+.Species=$rand
+.IVs=$rand
+.PID=$shiny
+.Ball=$suggest
+.Moves=$suggest
+.MetLocation=$suggest
+");
+```
+
+### Complex Filtering
+
+```csharp
+var filters = StringInstruction.GetFilters(@"
+=Legal=true
+=HasType=10
+!Ball=4
+>IV_HP=25
+=IdentifierContains=Pikachu
+");
+```
+
+### Bulk Modifications
+
+```csharp
+var instructions = StringInstruction.GetInstructions(@"
+.Ribbons=$suggest
+.EVs=252/0/0/252/4/0
+.ContestStats=$suggest
++Level=10
+*EXP=2
+");
+```
+
+---
+
+## BatchFilters
+
+Provides complex filters for batch editing.
+
+**Namespace:** `PKHeX.Core`
+
+### Properties
+
+#### FilterMods
+
+```csharp
+public static readonly List<IComplexFilter> FilterMods
+```
+
+Filters derived from PKM data:
+- `Legal` - Legality status
+- `$TypeName` - PKM type name
+- `PersonalType1` - Primary type
+- `PersonalType2` - Secondary type  
+- `HasType` - Either type matches
+
+#### FilterMeta
+
+```csharp
+public static readonly List<IComplexFilterMeta> FilterMeta
+```
+
+Filters derived from PKM source:
+- `IdentifierContains` - Identifier contains text
+- `Box` - Box number
+- `Slot` - Slot number
+
+---
+
+## BatchMods
+
+Provides complex modifications for batch editing.
+
+**Namespace:** `PKHeX.Core`
+
+### Properties
+
+#### SuggestionMods
+
+```csharp
+public static readonly List<ISuggestModification> SuggestionMods
+```
+
+Suggestion modifications that apply legal or recommended values:
+- `Stat_CP` - Reset CP (Pokémon GO)
+- `HeightAbsolute` / `WeightAbsolute` - Reset size
+- `Ball` - Suggest legal ball by color
+- `Moves` - Suggest legal moveset
+- `RelearnMoves` - Suggest relearn moves
+- `MetLocation` - Suggest met location
+- `Ribbons` - Apply valid ribbons
+- `EVs` - Suggest EVs
+- `ContestStats` - Suggest contest stats
+- `MoveMastery` - Suggest mastery flags
+- `PlusMoves` - Suggest plus flags
+
+#### ComplexMods
+
+```csharp
+public static readonly List<IComplexSet> ComplexMods
+```
+
+Complex modifications with special handling:
+- Date parsing (YYYYMMDD format)
+- Ability realignment
+- Random values (PID, Gender, EVs, TeraType)
+- Shiny values
+- Encryption constant
